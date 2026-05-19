@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🥷 BRAVOS's STORE // HIGH PERFORMANCE E-COMMERCE
 
-## Getting Started
+---
 
-First, run the development server:
+## ⚡ O Conceito
+A **BRAVOS's STORE** é um ecossistema de e-commerce focado em alta performance, engenharia têxtil avançada e vestuário esportivo de elite. Desenvolvida com uma estética agressiva inspirada no cenário cyberpunk e marcas de alta tecnologia desportiva (estilo *all-black* com contrastes em verde neon), a plataforma foi projetada para entregar uma experiência de navegação fluida, responsiva e de altíssimo nível.
 
+---
+
+## 🛠️ Stack Tecnológica
+
+O projeto utiliza o que há de mais moderno no ecossistema de desenvolvimento web:
+
+* **Framework:** [Next.js 15](https://nextjs.org/) (Utilizando a arquitetura moderna de App Router)
+* **Estilização:** [Tailwind CSS v4](https://tailwindcss.com/) (Compilação ultra rápida baseada em diretivas CSS nativas)
+* **Linguagem:** [TypeScript](https://www.typescriptlang.org/) (Garantia de tipagem estática e segurança de código)
+* **Runtime:** [Node.js](https://nodejs.org/)
+
+---
+
+## 🚀 Funcionalidades da Plataforma
+
+- [x] **Interface Premium (Dark Mode):** Identidade visual focada no contraste absoluto (`#070708` e `#00ff66`).
+- [x] **Hero Section Assimétrico (Drop 01):** Banner principal com vitrine integrada e carrossel dinâmico de produtos em destaque.
+- [x] **Vitrine Modular:** Grid de produtos no formato de cards horizontais, exibindo descrições técnicas, especificações e preços de forma limpa.
+- [x] **Layout Responsivo:** Otimização completa para dispositivos móveis, tablets e telas de alta resolução.
+
+---
+
+## 📦 Como Rodar o Projeto na Sua Máquina
+
+Para clonar e testar o ambiente de desenvolvimento localmente, siga os passos abaixo:
+
+### 1. Clonar o Repositório
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+git clone [https://github.com/aaxs7a/bravosstore_.git](https://github.com/aaxs7a/bravosstore_.git)
