@@ -7,7 +7,7 @@
 */
 
 // Componente lateral da sacola/carrinho. Ele recebe os itens por props e permite aumentar, diminuir e remover produtos.
-import React from 'react';
+import React, { useState } from 'react';
 
 interface CartItem {
   id: number;
@@ -28,6 +28,44 @@ interface CartProps {
 }
 
 export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, removeFromCart, totalItems, subtotal }: CartProps) {
+  const [loading, setLoading] = useState(false);
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    
+    setLoading(true);
+    try {
+      // Mapeia o carrinho para o formato que a API do Mercado Pago espera
+      const itemsToPay = cart.map(item => ({
+        title: item.name,
+        quantity: item.quantity,
+        price: item.price
+      }));
+
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items: itemsToPay }),
+      });
+
+      const data = await response.json();
+
+      if (data.init_point) {
+        // Redireciona o usuário para o Mercado Pago
+        window.location.href = data.init_point;
+      } else {
+        alert('Erro ao gerar o link de pagamento.');
+      }
+    } catch (error) {
+      console.error('Erro ao processar checkout:', error);
+      alert('Ocorreu um erro ao conectar com o servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={`fixed inset-0 z-50 transition-all duration-500 ${isCartOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
       {/* Fundo escuro: ao clicar fora da sacola, ela fecha. */}
@@ -80,7 +118,13 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
               <div className="flex justify-between"><span>SUBTOTAL</span><span className="text-white font-bold">R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
               <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL + FRETE</span><span className="text-[#00ff66]">R$ {(subtotal >= 299 ? subtotal : subtotal + 15).toFixed(2).replace('.', ',')}</span></div>
             </div>
-            <button className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer">FINALIZAR PEDIDO</button>
+            <button 
+              onClick={handleCheckout}
+              disabled={loading}
+              className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer disabled:opacity-50"
+            >
+              {loading ? "PROCESSANDO..." : "FINALIZAR PEDIDO"}
+            </button>
           </div>
         )}
       </div>
