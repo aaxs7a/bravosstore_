@@ -6,7 +6,6 @@
   Mostra produtos adicionados, quantidade, total e opção de remover/alterar itens.
 */
 
-// Componente lateral da sacola/carrinho. Ele recebe os itens por props e permite aumentar, diminuir e remover produtos.
 import React from 'react';
 
 interface CartItem {
@@ -28,6 +27,18 @@ interface CartProps {
 }
 
 export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, removeFromCart, totalItems, subtotal }: CartProps) {
+  // Estado para garantir que o cliente só renderize dados do localStorage após a montagem
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Enquanto não estiver montado, força os valores padrões do servidor para evitar quebra de hidratação
+  const safeCart = isMounted ? cart : [];
+  const safeTotalItems = isMounted ? totalItems : 0;
+  const safeSubtotal = isMounted ? subtotal : 0;
+
   return (
     <div className={`fixed inset-0 z-50 transition-all duration-500 ${isCartOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
       {/* Fundo escuro: ao clicar fora da sacola, ela fecha. */}
@@ -37,7 +48,7 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
         <div className="p-6 border-b border-zinc-900 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white">SUA SACOLA</h2>
-            <span className="bg-zinc-900 text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-full border border-zinc-800">{totalItems}</span>
+            <span className="bg-zinc-900 text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-full border border-zinc-800">{safeTotalItems}</span>
           </div>
           <button onClick={() => setIsCartOpen(false)} className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-[#00ff66] hover:border-[#00ff66] transition-all cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -46,14 +57,15 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
 
         {/* Lista dos produtos adicionados ao carrinho. */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {cart.length === 0 ? (
+          {safeCart.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center space-y-2">
               <p className="text-zinc-500 text-xs font-mono tracking-wider uppercase">Sua sacola está vazia.</p>
             </div>
           ) : (
-            cart.map((item) => (
+            safeCart.map((item) => (
               <div key={item.id} className="bg-zinc-950 border border-zinc-900 p-3 rounded-xl flex gap-3 items-center relative">
                 <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80" />
                 </div>
                 <div className="flex flex-col justify-between h-full w-full pr-6">
@@ -74,11 +86,11 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
         </div>
 
         {/* Resumo final com subtotal, total e botão de finalizar pedido. */}
-        {cart.length > 0 && (
+        {safeCart.length > 0 && (
           <div className="p-6 border-t border-zinc-900 bg-zinc-950/40 space-y-4">
             <div className="font-mono text-[11px] text-zinc-400 space-y-1">
-              <div className="flex justify-between"><span>SUBTOTAL</span><span className="text-white font-bold">R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
-              <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL + FRETE</span><span className="text-[#00ff66]">R$ {(subtotal >= 299 ? subtotal : subtotal + 15).toFixed(2).replace('.', ',')}</span></div>
+              <div className="flex justify-between"><span>SUBTOTAL</span><span className="text-white font-bold">R$ {safeSubtotal.toFixed(2).replace('.', ',')}</span></div>
+              <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL + FRETE</span><span className="text-[#00ff66]">R$ {(safeSubtotal >= 299 ? safeSubtotal : safeSubtotal + 15).toFixed(2).replace('.', ',')}</span></div>
             </div>
             <button className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer">FINALIZAR PEDIDO</button>
           </div>

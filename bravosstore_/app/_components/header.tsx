@@ -7,8 +7,6 @@
   A navegação funciona tanto na home quanto dentro da página de produto.
 */
 
-// Cabeçalho fixo da loja. Controla navbar, pesquisa, login/cadastro e abertura do carrinho.
-
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 
@@ -25,6 +23,15 @@ interface HeaderProps {
 export default function Header({ totalItems, setIsCartOpen, searchQuery, setSearchQuery, onAuthClick, loggedUserName, onLogout }: HeaderProps) {
   // Guarda qual item da navbar está marcado como ativo.
   const [localActiveTab, setLocalActiveTab] = React.useState("INÍCIO");
+
+  // Estado de controle para adiar a renderização do badge do carrinho até o cliente montar
+  const [isMounted, setIsMounted] = React.useState(false);
+
+  // O setTimeout resolve o erro "Calling setState synchronously within an effect" exigido pelo ESLint
+  React.useEffect(() => {
+    const timer = setTimeout(() => setIsMounted(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Hooks do Next usados para redirecionar entre páginas sem recarregar o site.
   const router = useRouter();
@@ -65,8 +72,6 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
 
     const sectionId = sectionByTab[tab] || "topo";
 
-    // Se o usuário estiver dentro da página de detalhes de um produto, primeiro volta para a home.
-    // O hash (#colecoes, #masculino...) indica qual seção deve abrir depois do redirecionamento.
     if (pathname !== "/") {
       router.push(sectionId === "topo" ? "/" : `/#${sectionId}`);
       return;
@@ -84,20 +89,20 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
 
       {/* NAVBAR PRINCIPAL COMPLETA */}
       <header className="border-b border-zinc-900 bg-[#070708]/95 backdrop-blur-md px-6 lg:px-12">
-        <div className="max-w-[1440px] mx-auto h-20 flex items-center justify-between gap-8">
+        <div className="max-w-360 mx-auto h-20 flex items-center justify-between gap-8">
           
           {/* LOGO */}
-          <div className="flex-shrink-0 pr-4">
+          <div className="shrink-0 pr-4">
             <button 
               onClick={() => handleTabClick("INÍCIO")} 
               className="text-xl font-black italic tracking-[0.12em] text-[26px] md:text-[30px] text-white uppercase transition-all duration-200 hover:scale-105 bg-transparent border-none cursor-pointer"
             >
-              BRAVO<span className="text-[#00ff66]">'s</span> STORE
+              BRAVO<span className="text-[#00ff66]">&apos;s</span> STORE
             </button>
           </div>
 
           {/* MENU DE NAVEGAÇÃO CENTRALIZADO */}
-          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8 text-xs font-bold tracking-[0.15em] uppercase text-zinc-400 select-none flex-shrink-0">
+          <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8 text-xs font-bold tracking-[0.15em] uppercase text-zinc-400 select-none shrink-0">
             {["INÍCIO", "COLEÇÕES", "MASCULINO", "FEMININO"].map((tab) => {
               const isActive = localActiveTab === tab;
               return (
@@ -109,7 +114,7 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
                   }`}
                 >
                   {tab}
-                  {isActive && <span className="absolute bottom-[-25px] left-0 w-full h-[2px] bg-[#00ff66] shadow-[0_0_10px_rgba(0,255,102,0.6)]" />}
+                  {isActive && <span className="absolute -bottom-6.25 left-0 w-full h-0.5 bg-[#00ff66] shadow-[0_0_10px_rgba(0,255,102,0.6)]" />}
                 </button>
               );
             })}
@@ -134,14 +139,14 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
 
             {/* ÁREA DE AUTENTICAÇÃO (LOGIN/CADASTRO) */}
             {loggedUserName ? (
-              <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+              <div className="hidden md:flex items-center gap-2 shrink-0">
                 <span className="max-w-28 truncate text-[11px] font-black tracking-widest text-[#00ff66] uppercase">{loggedUserName}</span>
                 <button onClick={onLogout} className="text-[10px] font-black tracking-widest text-zinc-500 hover:text-red-400 uppercase cursor-pointer">Sair</button>
               </div>
             ) : (
               <button 
                 onClick={onAuthClick}
-                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors py-2 cursor-pointer group flex-shrink-0"
+                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors py-2 cursor-pointer group shrink-0"
                 title="Entrar ou cadastrar"
               >
                 <div className="w-9 h-9 flex items-center justify-center bg-zinc-900/60 border border-zinc-800 rounded-full group-hover:border-zinc-700 transition-all">
@@ -156,14 +161,16 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
             {/* BOTÃO DO CARRINHO */}
             <button 
               onClick={() => setIsCartOpen(true)} 
-              className="relative w-9 h-9 flex items-center justify-center bg-zinc-900/60 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-all duration-300 hover:scale-105 hover:border-zinc-700 active:scale-95 cursor-pointer group flex-shrink-0"
+              className="relative w-9 h-9 flex items-center justify-center bg-zinc-900/60 border border-zinc-800 rounded-full text-zinc-400 hover:text-white transition-all duration-300 hover:scale-105 hover:border-zinc-700 active:scale-95 cursor-pointer group shrink-0"
             >
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-zinc-300 group-hover:text-[#00ff66] transition-colors duration-200">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 1 0-7.5 0v4.5m11.356-1.993 1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 0 1-1.12-1.243l1.264-12A1.125 1.125 0 0 1 5.513 7.5h12.974c.576 0 1.059.435 1.119 1.007ZM8.625 10.5a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm7.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
-              <span className="absolute -top-1 -right-1 bg-[#00ff66] text-black font-black text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(0,255,102,0.4)]">
-                {totalItems}
-              </span>
+              {isMounted && totalItems > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#00ff66] text-black font-black text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center shadow-[0_0_10px_rgba(0,255,102,0.4)]">
+                  {totalItems}
+                </span>
+              )}
             </button>
 
           </div>
