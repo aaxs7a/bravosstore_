@@ -2,24 +2,11 @@
 
 /*
   ARQUIVO: app/produto/[id]/page.tsx
-  FUNÇÃO: página de detalhes de um produto específico.
-
-  Como funciona:
-  - O [id] da pasta representa uma rota dinâmica do Next.js.
-  - Quando o usuário acessa /produto/8, o código lê o número 8 da URL.
-  - Depois ele procura esse id dentro da lista ALL_PRODUCTS.
-  - Se encontrar, mostra imagem, preço, descrição, tamanho e botão de carrinho.
-
-  Explicação para apresentação:
-  Esta página reaproveita a mesma lista de produtos da home. Assim, o produto
-  que aparece no card é o mesmo que aparece nos detalhes, evitando dados
-  duplicados e deixando o projeto mais organizado.
+  FUNÇÃO: página de detalhes de um produto específico com integração reativa de frete.
 */
 
-// Página de detalhes do produto. Usa o id da URL para encontrar o produto e mostrar informações completas.
-
 import React, { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation'; // Trocamos o 'use' pelo oficial useParams
+import { useRouter, useParams } from 'next/navigation';
 import Header from '../../_components/header';
 import Footer from '../../_components/footer';
 import AuthModal, { BravosUser } from '../../_components/AuthModal';
@@ -40,14 +27,11 @@ interface CartItem {
   quantity: number;
 }
 
-
 const CLOTHING_SIZES = ["P", "M", "G", "GG"];
 const SHOE_SIZES = ["38", "39", "40", "41", "42", "43"];
 
 export default function ProductDetailPage() {
   const router = useRouter();
-  
-  // Usamos a forma 100% segura e compatível de ler parâmetros no Client Side do Next.js
   const params = useParams();
   const resolvedId = params?.id;
 
@@ -56,6 +40,9 @@ export default function ProductDetailPage() {
   const [loggedUser, setLoggedUser] = useState<BravosUser | null>(null);
   const [selectedSize, setSelectedSize] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // 💡 NOVO: Estado para guardar o valor bruto do frete selecionado no bloco de simulação
+  const [selectedShippingPrice, setSelectedShippingPrice] = useState<number>(0);
 
   // Inicialização segura do carrinho com localStorage
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -118,6 +105,13 @@ export default function ProductDetailPage() {
       }
       return [...prevCart, { id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 }];
     });
+
+    // 💡 IMPORTANTE: Grava o preço do frete atual no localStorage exatamente no instante do clique!
+    localStorage.setItem('bravos_selected_shipping', String(selectedShippingPrice));
+    
+    // Dispara o evento para o componente Cart.tsx atualizar a sua interface imediatamente
+    window.dispatchEvent(new Event('storage'));
+
     setIsCartOpen(true);
   };
 
@@ -157,15 +151,11 @@ export default function ProductDetailPage() {
           className="inline-flex items-center gap-2.5 text-xs font-mono font-black text-zinc-400 hover:text-[#00ff66] uppercase tracking-widest mb-10 cursor-pointer transition-all border border-zinc-900 bg-zinc-950/60 px-5 py-3 rounded-xl hover:border-[#00ff66]/30 hover:bg-zinc-900/30 group"
         >
           <span className="transition-transform group-hover:-translate-x-1 font-sans text-sm font-light">←</span> 
-<<<<<<< HEAD
           Voltar
-=======
-          Voltar para Vitrine
->>>>>>> main
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
-          
+        
           {/* LADO ESQUERDO: Mídia e Abas Descritivas */}
           <div className="lg:col-span-7 space-y-8">
             <div className="bg-zinc-900/10 border border-zinc-900 rounded-3xl overflow-hidden aspect-square relative group">
@@ -188,7 +178,11 @@ export default function ProductDetailPage() {
               onAddToCart={addToCart} 
             />
 
-            <ShippingBlock productPrice={product.price} />
+            {/* 💡 AJUSTE: Passamos o interceptor onSelectShipping para atualizar o estado local sempre que o frete mudar */}
+            <ShippingBlock 
+              productPrice={product.price} 
+              onSelectShipping={(option) => setSelectedShippingPrice(option.rawPrice)}
+            />
 
             <TrustBadges />
           </div>

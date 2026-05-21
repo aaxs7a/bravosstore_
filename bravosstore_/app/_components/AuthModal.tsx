@@ -39,15 +39,12 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-<<<<<<< HEAD
-=======
   // Valida email padrão ( letras & números + @ + domínio + extensão )
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   
   // Faz a requisição de: Mínimo 6 caracteres, pelo menos 1 letra maiúscula e uma minúscula e 1 número
   const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 
->>>>>>> main
   if (!isOpen) return null;
 
   // Busca a lista de usuários cadastrados no navegador.
@@ -99,9 +96,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     const cleanEmail = email.trim().toLowerCase();
 
     if (!cleanEmail) {
-<<<<<<< HEAD
-      setMessage('Por favor, informe seu e-mail.');
-=======
       setMessage('Por favor, info rme seu e-mail.');
       return;
     }
@@ -109,7 +103,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     // Validação com regex na recuperação de senha
     if (!emailRegex.test(cleanEmail)) {
       setMessage('Insira um formato de e-mail válido ( Ex: seu@email.com)');
->>>>>>> main
       return;
     }
 
@@ -129,65 +122,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
     event.preventDefault();
     setMessage('');
     setSuccessMessage('');
-<<<<<<< HEAD
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanName = name.trim();
-    const cleanCpf = cpf.replace(/\D/g, '');
-
-    if (!cleanEmail || !password || (mode === 'register' && (!cleanName || !cpf))) {
-      setMessage('Preencha todos os campos obrigatórios.');
-      return;
-    }
-
-    if (!cleanEmail.includes('@')) {
-      setMessage('Digite um e-mail válido.');
-      return;
-    }
-
-    const users = getUsers();
-
-    if (mode === 'register') {
-      if (cleanCpf.length !== 11) {
-        setMessage('Digite um CPF válido com 11 dígitos.');
-        return;
-      }
-
-      if (password.length < 6) {
-        setMessage('A senha precisa ter pelo menos 6 caracteres.');
-        return;
-      }
-
-      if (password !== confirmPassword) {
-        setMessage('As senhas não conferem.');
-        return;
-      }
-
-      const alreadyExists = users.some((user) => user.email === cleanEmail);
-      if (alreadyExists) {
-        setMessage('Este e-mail já está cadastrado. Faça login.');
-        return;
-      }
-
-      const newUser: StoredUser = { name: cleanName, email: cleanEmail, cpf, password };
-      saveUsers([...users, newUser]);
-      localStorage.setItem('bravos_logged_user', JSON.stringify({ name: cleanName, email: cleanEmail, cpf }));
-      onLoginSuccess({ name: cleanName, email: cleanEmail, cpf });
-      resetFields();
-      onClose();
-      return;
-    }
-
-    const foundUser = users.find((user) => user.email === cleanEmail && user.password === password);
-    if (!foundUser) {
-      setMessage('E-mail ou senha incorretos.');
-      return;
-    }
-
-    localStorage.setItem('bravos_logged_user', JSON.stringify({ name: foundUser.name, email: foundUser.email, cpf: foundUser.cpf }));
-    onLoginSuccess({ name: foundUser.name, email: foundUser.email, cpf: foundUser.cpf });
-    resetFields();
-    onClose();
-=======
 
     const users = getUsers();
     const cleanEmail = email.trim().toLowerCase();
@@ -258,7 +192,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
       resetFields();
       onClose();
     }
->>>>>>> main
   };
 
   return (
@@ -328,10 +261,6 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
               </div>
             )}
 
-<<<<<<< HEAD
-            {/* Link de Esqueceu a Senha realocado para cima dos botões de submit */}
-=======
->>>>>>> main
             {mode === 'login' && (
               <div className="flex justify-end pt-0.5">
                 <button type="button" onClick={() => { setMessage(''); setMode('forgot'); }} className="text-[11px] font-mono text-zinc-500 hover:text-[#00ff66] tracking-wider uppercase transition-colors">
@@ -351,13 +280,8 @@ export default function AuthModal({ isOpen, onClose, onLoginSuccess }: AuthModal
             </button>
           </form>
         ) : (
-<<<<<<< HEAD
-          /* FORMULÁRIO DE ESQUECEU A SENHA */
-          <form onSubmit={handleForgotPasswordSubmit} className="p-6 space-y-4">
-=======
           <form onSubmit={handleForgotPasswordSubmit} className="p-6 space-y-4">
             {/* FORMULÁRIO DE ESQUECEU A SENHA */}
->>>>>>> main
             <p className="text-xs font-mono text-zinc-400 leading-relaxed uppercase tracking-wider text-center">
               Informe seu e-mail para recuperar as credenciais de acesso.
             </p>

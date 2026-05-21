@@ -2,15 +2,11 @@
 
 /*
   ARQUIVO: cart.tsx
-  Função: controla a lateral do carrinho de compras.
-  Mostra produtos adicionados, quantidade, total e opção de remover/alterar itens.
+  Função: controla a lateral do carrinho de compras com sincronização reativa de frete.
+  Mostra produtos adicionados, quantidade, total (subtotal + frete) e opção de fechar pedido.
 */
 
-<<<<<<< HEAD
-// Componente lateral da sacola/carrinho. Ele recebe os itens por props e permite aumentar, diminuir e remover produtos.
-=======
->>>>>>> main
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface CartItem {
   id: number;
@@ -31,35 +27,100 @@ interface CartProps {
 }
 
 export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, removeFromCart, totalItems, subtotal }: CartProps) {
-<<<<<<< HEAD
-=======
-  // Estado para garantir que o cliente só renderize dados do localStorage após a montagem
-  const [isMounted, setIsMounted] = React.useState(false);
+  const [loading, setLoading] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  
+  // 💡 NOVO: Estado reativo para armazenar o valor do frete selecionado
+  const [shippingPrice, setShippingPrice] = useState<number>(0);
 
-  React.useEffect(() => {
-    setIsMounted(true);
+  // Garante que o componente foi montado no cliente antes de exibir dados dinâmicos de estado
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
-  // Enquanto não estiver montado, força os valores padrões do servidor para evitar quebra de hidratação
-  const safeCart = isMounted ? cart : [];
-  const safeTotalItems = isMounted ? totalItems : 0;
-  const safeSubtotal = isMounted ? subtotal : 0;
+  // 💡 NOVO: Efeito reativo para escutar alterações no frete guardado do localStorage
+  useEffect(() => {
+    const updateShippingFromStorage = () => {
+      if (typeof window !== 'undefined') {
+        const savedShipping = localStorage.getItem('bravos_selected_shipping');
+        if (savedShipping !== null) {
+          setShippingPrice(parseFloat(savedShipping) || 0);
+        } else {
+          setShippingPrice(0);
+        }
+      }
+    };
 
->>>>>>> main
+    // Atualiza sempre que a sacola for aberta ou o evento customizado 'storage' disparar
+    if (isCartOpen) {
+      updateShippingFromStorage();
+    }
+
+    window.addEventListener('storage', updateShippingFromStorage);
+    return () => window.removeEventListener('storage', updateShippingFromStorage);
+  }, [isCartOpen]);
+
+  // Valor total somando de forma precisa o subtotal dos produtos + o frete ativo
+  const finalTotal = subtotal + shippingPrice;
+
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    
+    setLoading(true);
+    try {
+      // Mapeia o carrinho para o formato que a API do Mercado Pago espera
+      const itemsToPay = cart.map(item => ({
+        title: item.name,
+        quantity: item.quantity,
+        price: item.price
+      }));
+
+      // 💡 MELHORIA: Se houver frete cobrado, adicionamos ele como um item de custo na requisição do checkout
+      if (shippingPrice > 0) {
+        itemsToPay.push({
+          title: "FRETE OPERACIONAL (BRAVOS)",
+          quantity: 1,
+          price: shippingPrice
+        });
+      }
+
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ items: itemsToPay }),
+      });
+
+      const data = await response.json();
+
+      if (data.init_point) {
+        // Redireciona o usuário para o ambiente seguro do Mercado Pago
+        window.location.href = data.init_point;
+      } else {
+        alert('Erro ao gerar o link de pagamento.');
+      }
+    } catch (error) {
+      console.error('Erro ao processar checkout:', error);
+      alert('Ocorreu um erro ao conectar com o servidor.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={`fixed inset-0 z-50 transition-all duration-500 ${isCartOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
       {/* Fundo escuro: ao clicar fora da sacola, ela fecha. */}
       <div onClick={() => setIsCartOpen(false)} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       <div className={`absolute right-0 top-0 h-full w-full max-w-md bg-[#0b0b0d] border-l border-zinc-900 shadow-2xl flex flex-col transition-transform duration-500 ease-out ${isCartOpen ? "translate-x-0" : "translate-x-full"}`}>
+        
         {/* Cabeçalho da sacola com título, quantidade e botão fechar. */}
         <div className="p-6 border-b border-zinc-900 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-sm font-black tracking-[0.2em] uppercase text-white">SUA SACOLA</h2>
-<<<<<<< HEAD
-            <span className="bg-zinc-900 text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-full border border-zinc-800">{totalItems}</span>
-=======
-            <span className="bg-zinc-900 text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-full border border-zinc-800">{safeTotalItems}</span>
->>>>>>> main
+            <span className="bg-zinc-900 text-zinc-400 font-mono text-[10px] px-2 py-0.5 rounded-full border border-zinc-800">
+              {mounted ? totalItems : 0}
+            </span>
           </div>
           <button onClick={() => setIsCartOpen(false)} className="w-8 h-8 rounded-full border border-zinc-800 flex items-center justify-center text-zinc-400 hover:text-[#00ff66] hover:border-[#00ff66] transition-all cursor-pointer">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
@@ -68,25 +129,14 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
 
         {/* Lista dos produtos adicionados ao carrinho. */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
-<<<<<<< HEAD
           {cart.length === 0 ? (
-=======
-          {safeCart.length === 0 ? (
->>>>>>> main
             <div className="h-full flex flex-col items-center justify-center text-center space-y-2">
               <p className="text-zinc-500 text-xs font-mono tracking-wider uppercase">Sua sacola está vazia.</p>
             </div>
           ) : (
-<<<<<<< HEAD
             cart.map((item) => (
               <div key={item.id} className="bg-zinc-950 border border-zinc-900 p-3 rounded-xl flex gap-3 items-center relative">
                 <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden shrink-0">
-=======
-            safeCart.map((item) => (
-              <div key={item.id} className="bg-zinc-950 border border-zinc-900 p-3 rounded-xl flex gap-3 items-center relative">
-                <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
->>>>>>> main
                   <img src={item.image} alt={item.name} className="w-full h-full object-cover opacity-80" />
                 </div>
                 <div className="flex flex-col justify-between h-full w-full pr-6">
@@ -106,22 +156,36 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
           )}
         </div>
 
-        {/* Resumo final com subtotal, total e botão de finalizar pedido. */}
-<<<<<<< HEAD
+        {/* Resumo final com subtotal, frete dinâmico e botão de finalizar pedido. */}
         {cart.length > 0 && (
           <div className="p-6 border-t border-zinc-900 bg-zinc-950/40 space-y-4">
-            <div className="font-mono text-[11px] text-zinc-400 space-y-1">
-              <div className="flex justify-between"><span>SUBTOTAL</span><span className="text-white font-bold">R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
-              <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL + FRETE</span><span className="text-[#00ff66]">R$ {(subtotal >= 299 ? subtotal : subtotal + 15).toFixed(2).replace('.', ',')}</span></div>
-=======
-        {safeCart.length > 0 && (
-          <div className="p-6 border-t border-zinc-900 bg-zinc-950/40 space-y-4">
-            <div className="font-mono text-[11px] text-zinc-400 space-y-1">
-              <div className="flex justify-between"><span>SUBTOTAL</span><span className="text-white font-bold">R$ {safeSubtotal.toFixed(2).replace('.', ',')}</span></div>
-              <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL + FRETE</span><span className="text-[#00ff66]">R$ {(safeSubtotal >= 299 ? safeSubtotal : safeSubtotal + 15).toFixed(2).replace('.', ',')}</span></div>
->>>>>>> main
+            <div className="font-mono text-[11px] text-zinc-400 space-y-2">
+              <div className="flex justify-between">
+                <span>SUBTOTAL</span>
+                <span className="text-white font-bold">R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+              </div>
+              
+              {/* 💡 NOVO: Exibição dinâmica da linha do frete com cor verde chamativa se for GRÁTIS */}
+              <div className="flex justify-between pt-1">
+                <span>FRETE</span>
+                <span className={`font-bold ${shippingPrice === 0 ? "text-[#00ff66]" : "text-white"}`}>
+                  {shippingPrice === 0 ? "GRÁTIS" : `R$ ${shippingPrice.toFixed(2).replace('.', ',')}`}
+                </span>
+              </div>
+
+              <div className="flex justify-between text-xs font-black text-white uppercase pt-2.5 border-t border-zinc-900 mt-2">
+                <span>TOTAL + FRETE</span>
+                <span className="text-[#00ff66]">R$ {finalTotal.toFixed(2).replace('.', ',')}</span>
+              </div>
             </div>
-            <button className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer">FINALIZAR PEDIDO</button>
+            
+            <button 
+              onClick={handleCheckout}
+              disabled={loading}
+              className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer disabled:opacity-50 transition-all hover:scale-[1.01]"
+            >
+              {loading ? "PROCESSANDO..." : "FINALIZAR PEDIDO"}
+            </button>
           </div>
         )}
       </div>
