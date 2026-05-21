@@ -2,10 +2,32 @@
 
 /*
   ARQUIVO: app/page.tsx
+<<<<<<< HEAD
   FUNÇÃO: página inicial da Bravos Store com Carrossel Hero em Looping Infinito Bidirecional.
 */
 
 import React, { useState, useEffect, useRef } from 'react';
+=======
+  FUNÇÃO: página inicial da Bravos Store.
+
+  O que este arquivo controla:
+  1. Carrossel principal automático da home.
+  2. Barra de pesquisa funcional.
+  3. Vitrines de produtos: Coleções, Masculino e Feminino.
+  4. Carrinho de compras usando localStorage.
+  5. Login/cadastro de teste usando localStorage.
+
+  Explicação para apresentação:
+  Esta é a tela principal do sistema. Ela importa os produtos do arquivo
+  app/_data/products.ts, filtra os itens conforme a pesquisa e renderiza os
+  cards. Quando o usuário adiciona um produto, o estado do carrinho é atualizado
+  e salvo no navegador.
+*/
+
+// Página inicial da BRAVOS STORE. Reúne hero, carrossel, busca, vitrines, carrinho e autenticação.
+
+import React, { useState, useEffect } from 'react';
+>>>>>>> main
 import Header from './_components/header';
 import Footer from './_components/footer';
 import AuthModal, { BravosUser } from './_components/AuthModal';
@@ -14,6 +36,7 @@ import ProductCard from './_components/cardproduct';
 import { useRouter } from 'next/navigation';
 import { ALL_PRODUCTS, HERO_PRODUCTS, Product } from './_data/products';
 
+<<<<<<< HEAD
 // 📦 Importações do Swiper.js para o movimento arrastável e fluido
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Navigation } from 'swiper/modules';
@@ -23,6 +46,8 @@ import { Swiper as SwiperType } from 'swiper';
 import 'swiper/css';
 import 'swiper/css/navigation';
 
+=======
+>>>>>>> main
 interface CartItem {
   id: number;
   name: string;
@@ -31,8 +56,15 @@ interface CartItem {
   quantity: number;
 }
 
+<<<<<<< HEAD
 export default function Home() {
   const router = useRouter();
+=======
+
+export default function Home() {
+  const router = useRouter();
+  const [currentIndex, setCurrentIndex] = useState(1);
+>>>>>>> main
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [loggedUser, setLoggedUser] = useState<BravosUser | null>(null);
@@ -42,6 +74,7 @@ export default function Home() {
   const [indexMasculino, setIndexMasculino] = useState(0);
   const [indexFeminino, setIndexFeminino] = useState(0);
 
+<<<<<<< HEAD
   const swiperRef = useRef<SwiperType | null>(null);
 
   // Se a lista de destaques for pequena (ex: 3 itens), duplicamos para o Swiper fazer o Loop nos DOIS sentidos sem bugar
@@ -50,6 +83,9 @@ export default function Home() {
     : HERO_PRODUCTS;
 
   // Inicialização do carrinho com localStorage
+=======
+  // 🛡️ INICIALIZAÇÃO BLINDADA DO CARRINHO NA HOME
+>>>>>>> main
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -63,6 +99,10 @@ export default function Home() {
     return [];
   });
 
+<<<<<<< HEAD
+=======
+  // 🔄 SINCRONIZAÇÃO DE ALTERAÇÕES
+>>>>>>> main
   useEffect(() => {
     try {
       localStorage.setItem('bravos_cart', JSON.stringify(cart));
@@ -71,6 +111,10 @@ export default function Home() {
     }
   }, [cart]);
 
+<<<<<<< HEAD
+=======
+  // 👤 Recupera usuário logado ao abrir o site
+>>>>>>> main
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem('bravos_logged_user');
@@ -85,6 +129,12 @@ export default function Home() {
     if (queryFromUrl) setSearchQuery(queryFromUrl);
   }, []);
 
+<<<<<<< HEAD
+=======
+
+  // Quando a home abre com um link tipo /#masculino, rola automaticamente para a seção correta.
+  // Isso resolve o problema de clicar na navbar estando dentro de uma página de produto.
+>>>>>>> main
   useEffect(() => {
     const scrollFromHash = () => {
       const sectionId = window.location.hash.replace('#', '');
@@ -107,6 +157,19 @@ export default function Home() {
     return () => window.removeEventListener('hashchange', scrollFromHash);
   }, []);
 
+<<<<<<< HEAD
+=======
+  // 🎞️ Faz o carrossel principal passar sozinho
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % HERO_PRODUCTS.length);
+    }, 3500);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // 🔎 Volta o carrossel das seções para o início ao pesquisar
+>>>>>>> main
   useEffect(() => {
     setIndexColecoes(0);
     setIndexMasculino(0);
@@ -163,6 +226,14 @@ export default function Home() {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
+<<<<<<< HEAD
+=======
+  const nextSlide = () => { setCurrentIndex((prevIndex) => (prevIndex + 1) % HERO_PRODUCTS.length); };
+  const prevSlide = () => { setCurrentIndex((prevIndex) => (prevIndex - 1 + HERO_PRODUCTS.length) % HERO_PRODUCTS.length); };
+  const getLeftIndex = () => (currentIndex - 1 + HERO_PRODUCTS.length) % HERO_PRODUCTS.length;
+  const getRightIndex = () => (currentIndex + 1) % HERO_PRODUCTS.length;
+
+>>>>>>> main
   const moveCarrossel = (currentIdx: number, setIdx: React.Dispatch<React.SetStateAction<number>>, direction: number, maxItems: number) => {
     let newIdx = currentIdx + (direction * 4);
     if (newIdx < 0) newIdx = 0;
@@ -179,7 +250,10 @@ export default function Home() {
 
       {/* HERO SECTION */}
       <main id="topo" className="max-w-7xl mx-auto px-6 pt-32 lg:pt-40 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+<<<<<<< HEAD
         
+=======
+>>>>>>> main
         <div className="lg:col-span-5 space-y-8">
           <div className="flex items-center gap-3">
             <span className="w-10 h-[1px] bg-[#00ff66]/60"></span>
@@ -198,6 +272,7 @@ export default function Home() {
           </div>
         </div>
 
+<<<<<<< HEAD
         {/* 🎞️ CARROSSEL HERO EM LOOPING REAL INFINITO PARA OS DOIS LADOS */}
         <div className="lg:col-span-7 relative w-full select-none px-4">
           
@@ -285,6 +360,42 @@ export default function Home() {
 
       {/* VITRINES PRODUTOS - CORREÇÃO DEFINITIVA: SEM VAZAMENTOS E SEM CORTES */}
       <section className="max-w-7xl mx-auto px-6 py-16 space-y-28 border-t border-zinc-900/60 overflow-hidden">
+=======
+        {/* CARROSSEL HERO */}
+        <div className="lg:col-span-7 flex items-center justify-center relative px-4 select-none">
+          <button onClick={prevSlide} className="absolute left-0 lg:left-4 z-30 w-12 h-12 rounded-full border-2 border-[#00ff66] bg-black/80 text-[#00ff66] flex items-center justify-center hover:bg-[#00ff66] hover:text-black transition-all shadow-[0_0_15px_rgba(0,255,102,0.4)] cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" /></svg>
+          </button>
+
+          <div className="w-full flex items-center justify-center gap-4 relative h-[420px]">
+            <div className="w-[20%] h-[320px] rounded-xl overflow-hidden border border-zinc-900 opacity-30 hidden md:block blur-[1px]">
+              <img src={HERO_PRODUCTS[getLeftIndex()].image} alt="Anterior" className="w-full h-full object-cover" />
+            </div>
+
+            <div className="w-[100%] md:w-[60%] h-[400px] bg-zinc-900/40 border border-[#00ff66]/30 shadow-[0_0_50px_rgba(0,255,102,0.06)] rounded-2xl relative flex flex-col justify-between overflow-hidden group">
+              <img src={HERO_PRODUCTS[currentIndex].image} alt={HERO_PRODUCTS[currentIndex].name} className="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-108" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#070708] via-transparent to-transparent"></div>
+              
+              <div className="absolute bottom-4 left-4 right-4 bg-black/80 border border-zinc-800/80 backdrop-blur-md p-4 rounded-xl z-10">
+                <span className="text-[9px] font-mono text-[#00ff66] block tracking-widest uppercase">{HERO_PRODUCTS[currentIndex].category} // {HERO_PRODUCTS[currentIndex].target}</span>
+                <span className="text-sm font-black text-white tracking-wider block uppercase mt-0.5">{HERO_PRODUCTS[currentIndex].name}</span>
+              </div>
+            </div>
+
+            <div className="w-[20%] h-[320px] rounded-xl overflow-hidden border border-zinc-900 opacity-30 hidden md:block blur-[1px]">
+              <img src={HERO_PRODUCTS[getRightIndex()].image} alt="Próximo" className="w-full h-full object-cover" />
+            </div>
+          </div>
+
+          <button onClick={nextSlide} className="absolute right-0 lg:right-4 z-30 w-12 h-12 rounded-full border-2 border-[#00ff66] bg-black/80 text-[#00ff66] flex items-center justify-center hover:bg-[#00ff66] hover:text-black transition-all shadow-[0_0_15px_rgba(0,255,102,0.4)] cursor-pointer">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={3} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" /></svg>
+          </button>
+        </div>
+      </main>
+
+      {/* 🛍️ VITRINE COMPACTA */}
+      <section className="max-w-7xl mx-auto px-6 py-16 space-y-28 border-t border-zinc-900/60">
+>>>>>>> main
         
         {/* SECTION 1: COLEÇÕES */}
         <div id="colecoes" className="space-y-6 scroll-mt-24">
@@ -295,6 +406,7 @@ export default function Home() {
             </div>
             {listColecoes.length > 4 && (
               <div className="flex gap-2">
+<<<<<<< HEAD
                 <button 
                   onClick={() => {
                     const swiperEl = (document.querySelector('.swiper-colecoes') as HTMLElement & { swiper?: any })?.swiper;
@@ -313,10 +425,15 @@ export default function Home() {
                 >
                   →
                 </button>
+=======
+                <button onClick={() => moveCarrossel(indexColecoes, setIndexColecoes, -1, listColecoes.length)} className="w-10 h-10 border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-[#00ff66] hover:text-[#00ff66] transition-all rounded-xl flex items-center justify-center cursor-pointer">←</button>
+                <button onClick={() => moveCarrossel(indexColecoes, setIndexColecoes, 1, listColecoes.length)} className="w-10 h-10 border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-[#00ff66] hover:text-[#00ff66] transition-all rounded-xl flex items-center justify-center cursor-pointer">→</button>
+>>>>>>> main
               </div>
             )}
           </div>
           {listColecoes.length > 0 ? (
+<<<<<<< HEAD
             /* 💡 Removido margens negativas e overflows forçados que quebravam a tela */
             <div className="w-full">
               <Swiper
@@ -338,6 +455,12 @@ export default function Home() {
                   </SwiperSlide>
                 ))}
               </Swiper>
+=======
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {listColecoes.slice(indexColecoes, indexColecoes + 4).map((product) => (
+                <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
+              ))}
+>>>>>>> main
             </div>
           ) : (
             <p className="text-zinc-500 text-xs italic tracking-wider py-4">Nenhum produto encontrado nesta categoria para "{searchQuery}".</p>
@@ -353,6 +476,7 @@ export default function Home() {
             </div>
             {listMasculino.length > 4 && (
               <div className="flex gap-2">
+<<<<<<< HEAD
                 <button 
                   onClick={() => {
                     const swiperEl = (document.querySelector('.swiper-masculino') as HTMLElement & { swiper?: any })?.swiper;
@@ -371,10 +495,15 @@ export default function Home() {
                 >
                   →
                 </button>
+=======
+                <button onClick={() => moveCarrossel(indexMasculino, setIndexMasculino, -1, listMasculino.length)} className="w-10 h-10 border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-[#00ff66] hover:text-[#00ff66] transition-all rounded-xl flex items-center justify-center cursor-pointer">←</button>
+                <button onClick={() => moveCarrossel(indexMasculino, setIndexMasculino, 1, listMasculino.length)} className="w-10 h-10 border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-[#00ff66] hover:text-[#00ff66] transition-all rounded-xl flex items-center justify-center cursor-pointer">→</button>
+>>>>>>> main
               </div>
             )}
           </div>
           {listMasculino.length > 0 ? (
+<<<<<<< HEAD
             <div className="w-full">
               <Swiper
                 speed={500}
@@ -394,6 +523,12 @@ export default function Home() {
                   </SwiperSlide>
                 ))}
               </Swiper>
+=======
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {listMasculino.slice(indexMasculino, indexMasculino + 4).map((product) => (
+                <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
+              ))}
+>>>>>>> main
             </div>
           ) : (
             <p className="text-zinc-500 text-xs italic tracking-wider py-4">Nenhum produto encontrado nesta categoria para "{searchQuery}".</p>
@@ -409,6 +544,7 @@ export default function Home() {
             </div>
             {listFeminino.length > 4 && (
               <div className="flex gap-2">
+<<<<<<< HEAD
                 <button 
                   onClick={() => {
                     const swiperEl = (document.querySelector('.swiper-feminino') as HTMLElement & { swiper?: any })?.swiper;
@@ -427,10 +563,15 @@ export default function Home() {
                 >
                   →
                 </button>
+=======
+                <button onClick={() => moveCarrossel(indexFeminino, setIndexFeminino, -1, listFeminino.length)} className="w-10 h-10 border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-[#00ff66] hover:text-[#00ff66] transition-all rounded-xl flex items-center justify-center cursor-pointer">←</button>
+                <button onClick={() => moveCarrossel(indexFeminino, setIndexFeminino, 1, listFeminino.length)} className="w-10 h-10 border border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-[#00ff66] hover:text-[#00ff66] transition-all rounded-xl flex items-center justify-center cursor-pointer">→</button>
+>>>>>>> main
               </div>
             )}
           </div>
           {listFeminino.length > 0 ? (
+<<<<<<< HEAD
             <div className="w-full">
               <Swiper
                 speed={500}
@@ -450,6 +591,12 @@ export default function Home() {
                   </SwiperSlide>
                 ))}
               </Swiper>
+=======
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {listFeminino.slice(indexFeminino, indexFeminino + 4).map((product) => (
+                <ProductCard key={product.id} product={product} onAddToCart={addToCart} />
+              ))}
+>>>>>>> main
             </div>
           ) : (
             <p className="text-zinc-500 text-xs italic tracking-wider py-4">Nenhum produto encontrado nesta categoria para "{searchQuery}".</p>

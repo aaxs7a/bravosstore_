@@ -157,7 +157,11 @@ export default function ProductDetailPage() {
           className="inline-flex items-center gap-2.5 text-xs font-mono font-black text-zinc-400 hover:text-[#00ff66] uppercase tracking-widest mb-10 cursor-pointer transition-all border border-zinc-900 bg-zinc-950/60 px-5 py-3 rounded-xl hover:border-[#00ff66]/30 hover:bg-zinc-900/30 group"
         >
           <span className="transition-transform group-hover:-translate-x-1 font-sans text-sm font-light">←</span> 
+<<<<<<< HEAD
           Voltar
+=======
+          Voltar para Vitrine
+>>>>>>> main
         </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
