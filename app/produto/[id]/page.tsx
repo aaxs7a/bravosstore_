@@ -7,7 +7,7 @@
   Como funciona:
   - O [id] da pasta representa uma rota dinâmica do Next.js.
   - Quando o usuário acessa /produto/8, o código lê o número 8 da URL.
-  - Depois ele procura esse id dentro da lista ALL_PRODUCTS.
+  - Depois ele busca esse produto na tabela produtos do Supabase.
   - Se encontrar, mostra imagem, preço, descrição, tamanho e botão de carrinho.
 
   Explicação para apresentação:
@@ -24,7 +24,18 @@ import Header from '../../_components/header';
 import Footer from '../../_components/footer';
 import AuthModal, { BravosUser } from '../../_components/AuthModal';
 import Cart from '../../_components/cart';
-import { ALL_PRODUCTS } from '../../_data/products';
+import {
+  adicionarAoCarrinho,
+  atualizarQuantidadeCarrinho,
+  buscarCarrinho,
+  buscarProdutoPorId,
+  buscarUsuarioLogado,
+  finalizarPedido,
+  removerDoCarrinho,
+  sairDaConta,
+  type CartItem,
+  type Product,
+} from '../../_lib/bravosSupabase';
 
 // Subcomponentes específicos
 import ProductInfo from './_components/ProductInfo';
@@ -32,13 +43,6 @@ import ProductTabs from './_components/ProductTabs';
 import ShippingBlock from './_components/ShippingBlock';
 import TrustBadges from './_components/TrustBadges';
 
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  image: string;
-  quantity: number;
-}
 
 
 const CLOTHING_SIZES = ["P", "M", "G", "GG"];
@@ -57,36 +61,30 @@ export default function ProductDetailPage() {
   const [selectedSize, setSelectedSize] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Inicialização segura do carrinho com localStorage
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window !== 'undefined') {
+  // Carrinho vindo do Supabase.
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Produto aberto nesta página.
+  const [product, setProduct] = useState<Product | null>(null);
+  const [isLoadingProduct, setIsLoadingProduct] = useState(true);
+
+  // Carrega sessão e carrinho do usuário logado no Supabase.
+  useEffect(() => {
+    const carregarSessao = async () => {
       try {
-        const savedCart = localStorage.getItem('bravos_cart');
-        return savedCart ? JSON.parse(savedCart) : [];
+        const user = await buscarUsuarioLogado();
+        setLoggedUser(user);
+
+        if (user) {
+          const carrinhoDoBanco = await buscarCarrinho(user.id);
+          setCart(carrinhoDoBanco);
+        }
       } catch (error) {
-        console.error("Dados corrompidos no localStorage. Resetando...", error);
-        return [];
+        console.error("Erro ao carregar sessão pelo Supabase:", error);
       }
-    }
-    return [];
-  });
+    };
 
-  // Sincroniza alterações do carrinho para o localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('bravos_cart', JSON.stringify(cart));
-    } catch (error) {
-      console.error("Falha ao salvar dados do carrinho:", error);
-    }
-  }, [cart]);
-
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('bravos_logged_user');
-      if (savedUser) setLoggedUser(JSON.parse(savedUser));
-    } catch (error) {
-      console.error("Erro ao carregar usuário logado:", error);
-    }
+    carregarSessao();
   }, []);
 
   useEffect(() => {
@@ -94,8 +92,32 @@ export default function ProductDetailPage() {
     if (query) router.push(`/?busca=${encodeURIComponent(query)}`);
   }, [searchQuery, router]);
 
-  // Busca o produto correspondente usando o id resolvido pelo useParams
-  const product = ALL_PRODUCTS.find((p) => String(p.id) === String(resolvedId));
+  // Busca o produto correspondente usando o id da URL diretamente no Supabase.
+  useEffect(() => {
+    const carregarProduto = async () => {
+      if (!resolvedId) return;
+
+      try {
+        const produtoDoBanco = await buscarProdutoPorId(Number(resolvedId));
+        setProduct(produtoDoBanco);
+      } catch (error) {
+        console.error("Erro ao buscar produto no Supabase:", error);
+        setProduct(null);
+      } finally {
+        setIsLoadingProduct(false);
+      }
+    };
+
+    carregarProduto();
+  }, [resolvedId]);
+
+  if (isLoadingProduct) {
+    return (
+      <div className="min-h-screen bg-[#070708] text-white flex items-center justify-center">
+        <p className="text-xs font-mono uppercase tracking-widest text-zinc-400">Carregando produto...</p>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -110,34 +132,75 @@ export default function ProductDetailPage() {
 
   const sizeOptions = product.category === "CALÇADOS" ? SHOE_SIZES : CLOTHING_SIZES;
 
-  const addToCart = () => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prevCart, { id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 }];
-    });
-    setIsCartOpen(true);
+  const addToCart = async () => {
+    if (!loggedUser) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    try {
+      await adicionarAoCarrinho(loggedUser.id, product.id, 1);
+      const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
+      setCart(carrinhoAtualizado);
+      setIsCartOpen(true);
+    } catch (error) {
+      console.error("Erro ao adicionar produto no Supabase:", error);
+    }
   };
 
-  const updateQuantity = (id: number, amount: number) => {
-    setCart((prevCart) => prevCart.map(item => {
-      if (item.id === id) {
-        const newQty = item.quantity + amount;
-        return newQty > 0 ? { ...item, quantity: newQty } : null;
-      }
-      return item;
-    }).filter(Boolean) as CartItem[]);
+  const updateQuantity = async (id: number, amount: number) => {
+    if (!loggedUser) return;
+
+    const itemAtual = cart.find((item) => item.id === id);
+    if (!itemAtual) return;
+
+    const novaQuantidade = itemAtual.quantity + amount;
+
+    try {
+      await atualizarQuantidadeCarrinho(loggedUser.id, id, novaQuantidade);
+      const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
+      setCart(carrinhoAtualizado);
+    } catch (error) {
+      console.error("Erro ao atualizar carrinho no Supabase:", error);
+    }
   };
 
-  const removeFromCart = (id: number) => {
-    setCart((prevCart) => prevCart.filter(item => item.id !== id));
+  const removeFromCart = async (id: number) => {
+    if (!loggedUser) return;
+
+    try {
+      await removerDoCarrinho(loggedUser.id, id);
+      const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
+      setCart(carrinhoAtualizado);
+    } catch (error) {
+      console.error("Erro ao remover produto do Supabase:", error);
+    }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('bravos_logged_user');
-    setLoggedUser(null);
+  const handleLogout = async () => {
+    try {
+      await sairDaConta();
+      setLoggedUser(null);
+      setCart([]);
+    } catch (error) {
+      console.error("Erro ao sair da conta:", error);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!loggedUser) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    try {
+      await finalizarPedido(loggedUser.id, cart);
+      setCart([]);
+      setIsCartOpen(false);
+      alert('Pedido criado com sucesso no Supabase!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao finalizar pedido.');
+    }
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -147,8 +210,8 @@ export default function ProductDetailPage() {
     <div className={`min-h-screen bg-[#070708] text-zinc-100 antialiased font-sans ${isCartOpen ? 'overflow-hidden' : 'overflow-x-hidden'}`}>
       
       <Header totalItems={totalItems} setIsCartOpen={setIsCartOpen} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onAuthClick={() => setIsAuthOpen(true)} loggedUserName={loggedUser?.name} onLogout={handleLogout} />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={setLoggedUser} />
-      <Cart isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} totalItems={totalItems} subtotal={subtotal} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={async (user) => { setLoggedUser(user); setCart(await buscarCarrinho(user.id)); }} />
+      <Cart isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} totalItems={totalItems} subtotal={subtotal} onCheckout={handleCheckout} />
 
       <main className="max-w-7xl mx-auto px-6 pt-32 lg:pt-40 pb-20">
         

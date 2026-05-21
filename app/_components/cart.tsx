@@ -25,9 +25,10 @@ interface CartProps {
   removeFromCart: (id: number) => void;
   totalItems: number;
   subtotal: number;
+  onCheckout?: () => void;
 }
 
-export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, removeFromCart, totalItems, subtotal }: CartProps) {
+export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, removeFromCart, totalItems, subtotal, onCheckout }: CartProps) {
   return (
     <div className={`fixed inset-0 z-50 transition-all duration-500 ${isCartOpen ? "visible opacity-100" : "invisible opacity-0"}`}>
       {/* Fundo escuro: ao clicar fora da sacola, ela fecha. */}
@@ -78,9 +79,9 @@ export default function Cart({ isCartOpen, setIsCartOpen, cart, updateQuantity, 
           <div className="p-6 border-t border-zinc-900 bg-zinc-950/40 space-y-4">
             <div className="font-mono text-[11px] text-zinc-400 space-y-1">
               <div className="flex justify-between"><span>SUBTOTAL</span><span className="text-white font-bold">R$ {subtotal.toFixed(2).replace('.', ',')}</span></div>
-              <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL</span><span className="text-[#00ff66]">R$ {(subtotal >= 299 ? subtotal : subtotal + 15).toFixed(2).replace('.', ',')}</span></div>
+              <div className="flex justify-between text-xs font-black text-white uppercase pt-2 border-t border-zinc-900 mt-2"><span>TOTAL + FRETE</span><span className="text-[#00ff66]">R$ {(subtotal >= 299 ? subtotal : subtotal + 15).toFixed(2).replace('.', ',')}</span></div>
             </div>
-            <button className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer">FINALIZAR PEDIDO</button>
+            <button onClick={onCheckout} className="w-full bg-[#00ff66] text-black font-black text-xs tracking-[0.2em] uppercase py-4 rounded cursor-pointer">FINALIZAR PEDIDO</button>
           </div>
         )}
       </div>

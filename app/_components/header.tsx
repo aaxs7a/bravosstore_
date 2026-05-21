@@ -33,7 +33,6 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
   // Mapa que transforma o texto da navbar no id da seção da página inicial.
   const sectionByTab: Record<string, string> = {
     "INÍCIO": "topo",
-    "LANÇAMENTOS": "topo",
     "COLEÇÕES": "colecoes",
     "MASCULINO": "masculino",
     "FEMININO": "feminino",
@@ -99,7 +98,7 @@ export default function Header({ totalItems, setIsCartOpen, searchQuery, setSear
 
           {/* MENU DE NAVEGAÇÃO CENTRALIZADO */}
           <nav className="hidden lg:flex items-center space-x-6 xl:space-x-8 text-xs font-bold tracking-[0.15em] uppercase text-zinc-400 select-none flex-shrink-0">
-            {["INÍCIO", "LANÇAMENTOS", "COLEÇÕES", "MASCULINO", "FEMININO"].map((tab) => {
+            {["INÍCIO", "COLEÇÕES", "MASCULINO", "FEMININO"].map((tab) => {
               const isActive = localActiveTab === tab;
               return (
                 <button

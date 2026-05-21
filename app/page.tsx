@@ -8,8 +8,8 @@
   1. Carrossel principal automático da home.
   2. Barra de pesquisa funcional.
   3. Vitrines de produtos: Coleções, Masculino e Feminino.
-  4. Carrinho de compras usando localStorage.
-  5. Login/cadastro de teste usando localStorage.
+  4. Carrinho de compras salvo no Supabase.
+  5. Login/cadastro usando Supabase Auth.
 
   Explicação para apresentação:
   Esta é a tela principal do sistema. Ela importa os produtos do arquivo
@@ -27,15 +27,19 @@ import AuthModal, { BravosUser } from './_components/AuthModal';
 import Cart from './_components/cart';
 import ProductCard from './_components/cardproduct';
 import { useRouter } from 'next/navigation';
-import { ALL_PRODUCTS, HERO_PRODUCTS, Product } from './_data/products';
+import {
+  adicionarAoCarrinho,
+  atualizarQuantidadeCarrinho,
+  buscarCarrinho,
+  buscarProdutos,
+  buscarUsuarioLogado,
+  finalizarPedido,
+  removerDoCarrinho,
+  sairDaConta,
+  type CartItem,
+  type Product,
+} from './_lib/bravosSupabase';
 
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  image: string;
-  quantity: number;
-}
 
 
 export default function Home() {
@@ -50,37 +54,61 @@ export default function Home() {
   const [indexMasculino, setIndexMasculino] = useState(0);
   const [indexFeminino, setIndexFeminino] = useState(0);
 
-  // 🛡️ INICIALIZAÇÃO BLINDADA DO CARRINHO NA HOME
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (typeof window !== 'undefined') {
+  // Lista de produtos exibidos na vitrine.
+  // Agora começa vazia e é preenchida com os dados reais do Supabase.
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoadingProducts, setIsLoadingProducts] = useState(true);
+  const [productsError, setProductsError] = useState("");
+
+  // Carrinho agora vem da tabela carrinho do Supabase.
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  // Produtos usados no carrossel principal.
+  // Eles também vêm do Supabase, usando os primeiros produtos cadastrados.
+  const heroProducts = products.slice(0, 3);
+
+  // 👤 Recupera usuário logado pelo Supabase Auth e carrega o carrinho dele.
+  useEffect(() => {
+    const carregarSessao = async () => {
       try {
-        const savedCart = localStorage.getItem('bravos_cart');
-        return savedCart ? JSON.parse(savedCart) : [];
+        const user = await buscarUsuarioLogado();
+        setLoggedUser(user);
+
+        if (user) {
+          const carrinhoDoBanco = await buscarCarrinho(user.id);
+          setCart(carrinhoDoBanco);
+        }
       } catch (error) {
-        console.error("Erro ao ler carrinho na Home, resetando...", error);
-        return [];
+        console.error("Erro ao carregar sessão pelo Supabase:", error);
       }
-    }
-    return [];
-  });
+    };
 
-  // 🔄 SINCRONIZAÇÃO DE ALTERAÇÕES
-  useEffect(() => {
-    try {
-      localStorage.setItem('bravos_cart', JSON.stringify(cart));
-    } catch (error) {
-      console.error("Falha ao salvar dados do carrinho na Home:", error);
-    }
-  }, [cart]);
+    carregarSessao();
+  }, []);
 
-  // 👤 Recupera usuário logado ao abrir o site
+  // 📦 Carrega produtos da tabela produtos do Supabase.
   useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('bravos_logged_user');
-      if (savedUser) setLoggedUser(JSON.parse(savedUser));
-    } catch (error) {
-      console.error("Erro ao carregar usuário logado:", error);
-    }
+    const carregarProdutos = async () => {
+      try {
+        setIsLoadingProducts(true);
+        setProductsError("");
+
+        const produtosDoBanco = await buscarProdutos();
+        setProducts(produtosDoBanco);
+
+        if (produtosDoBanco.length === 0) {
+          setProductsError("A tabela produtos está vazia ou o Supabase não liberou a leitura dos dados.");
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Erro desconhecido ao buscar produtos.";
+        console.error("Erro ao buscar produtos no Supabase:", error);
+        setProductsError(message);
+      } finally {
+        setIsLoadingProducts(false);
+      }
+    };
+
+    carregarProdutos();
   }, []);
 
   useEffect(() => {
@@ -113,14 +141,17 @@ export default function Home() {
     return () => window.removeEventListener('hashchange', scrollFromHash);
   }, []);
 
-  // 🎞️ Faz o carrossel principal passar sozinho
+  // 🎞️ Faz o carrossel principal passar sozinho.
+  // Só liga o intervalo quando existir produto carregado do Supabase.
   useEffect(() => {
+    if (heroProducts.length === 0) return;
+
     const timer = setInterval(() => {
-      setCurrentIndex((prevIndex) => (prevIndex + 1) % HERO_PRODUCTS.length);
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % heroProducts.length);
     }, 3500);
 
     return () => clearInterval(timer);
-  }, []);
+  }, [heroProducts.length]);
 
   // 🔎 Volta o carrossel das seções para o início ao pesquisar
   useEffect(() => {
@@ -129,7 +160,7 @@ export default function Home() {
     setIndexFeminino(0);
   }, [searchQuery]);
 
-  const filteredProducts = ALL_PRODUCTS.filter(product => {
+  const filteredProducts = products.filter(product => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return true;
 
@@ -146,43 +177,121 @@ export default function Home() {
   const listMasculino = filteredProducts.filter(p => p.target === "MASCULINO");
   const listFeminino = filteredProducts.filter(p => p.target === "FEMININO");
 
-  const addToCart = (product: Product) => {
-    setCart((prevCart) => {
-      const existingItem = prevCart.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevCart.map(item => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      }
-      return [...prevCart, { id: product.id, name: product.name, price: product.price, image: product.image, quantity: 1 }];
-    });
-    setIsCartOpen(true);
+  const addToCart = async (product: Product) => {
+    if (!loggedUser) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    try {
+      await adicionarAoCarrinho(loggedUser.id, product.id, 1);
+      const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
+      setCart(carrinhoAtualizado);
+      setIsCartOpen(true);
+    } catch (error) {
+      console.error("Erro ao adicionar produto no Supabase:", error);
+    }
   };
 
-  const updateQuantity = (id: number, amount: number) => {
-    setCart((prevCart) => prevCart.map(item => {
-      if (item.id === id) {
-        const newQty = item.quantity + amount;
-        return newQty > 0 ? { ...item, quantity: newQty } : null;
-      }
-      return item;
-    }).filter(Boolean) as CartItem[]);
+  const updateQuantity = async (id: number, amount: number) => {
+    if (!loggedUser) return;
+
+    const itemAtual = cart.find((item) => item.id === id);
+    if (!itemAtual) return;
+
+    const novaQuantidade = itemAtual.quantity + amount;
+
+    try {
+      await atualizarQuantidadeCarrinho(loggedUser.id, id, novaQuantidade);
+      const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
+      setCart(carrinhoAtualizado);
+    } catch (error) {
+      console.error("Erro ao atualizar carrinho no Supabase:", error);
+    }
   };
 
-  const removeFromCart = (id: number) => {
-    setCart((prevCart) => prevCart.filter(item => item.id !== id));
+  const removeFromCart = async (id: number) => {
+    if (!loggedUser) return;
+
+    try {
+      await removerDoCarrinho(loggedUser.id, id);
+      const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
+      setCart(carrinhoAtualizado);
+    } catch (error) {
+      console.error("Erro ao remover produto do Supabase:", error);
+    }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('bravos_logged_user');
-    setLoggedUser(null);
+  const handleLogout = async () => {
+    try {
+      await sairDaConta();
+      setLoggedUser(null);
+      setCart([]);
+    } catch (error) {
+      console.error("Erro ao sair da conta:", error);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!loggedUser) {
+      setIsAuthOpen(true);
+      return;
+    }
+
+    try {
+      await finalizarPedido(loggedUser.id, cart);
+      setCart([]);
+      setIsCartOpen(false);
+      alert('Pedido criado com sucesso no Supabase!');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao finalizar pedido.');
+    }
   };
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const nextSlide = () => { setCurrentIndex((prevIndex) => (prevIndex + 1) % HERO_PRODUCTS.length); };
-  const prevSlide = () => { setCurrentIndex((prevIndex) => (prevIndex - 1 + HERO_PRODUCTS.length) % HERO_PRODUCTS.length); };
-  const getLeftIndex = () => (currentIndex - 1 + HERO_PRODUCTS.length) % HERO_PRODUCTS.length;
-  const getRightIndex = () => (currentIndex + 1) % HERO_PRODUCTS.length;
+  // Enquanto os produtos estão sendo carregados do Supabase, mostramos uma tela simples.
+  // Isso evita erro no carrossel quando ainda não existe produto na tela.
+  if (isLoadingProducts || products.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#070708] text-white antialiased font-sans">
+        <Header
+          totalItems={totalItems}
+          setIsCartOpen={setIsCartOpen}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          onAuthClick={() => setIsAuthOpen(true)}
+          loggedUserName={loggedUser?.name}
+          onLogout={handleLogout}
+        />
+        <main className="min-h-screen flex items-center justify-center px-6">
+          <div className="text-center space-y-4 max-w-xl">
+            <p className="text-[#00ff66] text-xs font-mono uppercase tracking-[0.3em]">Supabase</p>
+            <h1 className="text-2xl font-black uppercase tracking-wider">
+              {isLoadingProducts ? "Carregando produtos..." : "Nenhum produto carregado"}
+            </h1>
+            <p className="text-zinc-400 text-sm">
+              {productsError || "Confira o .env.local, as policies/RLS do Supabase e se existem produtos cadastrados."}
+            </p>
+            {!isLoadingProducts && (
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-2 bg-[#00ff66] text-black px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest"
+              >
+                Tentar novamente
+              </button>
+            )}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const nextSlide = () => { setCurrentIndex((prevIndex) => (prevIndex + 1) % heroProducts.length); };
+  const prevSlide = () => { setCurrentIndex((prevIndex) => (prevIndex - 1 + heroProducts.length) % heroProducts.length); };
+  const getLeftIndex = () => (currentIndex - 1 + heroProducts.length) % heroProducts.length;
+  const getRightIndex = () => (currentIndex + 1) % heroProducts.length;
 
   const moveCarrossel = (currentIdx: number, setIdx: React.Dispatch<React.SetStateAction<number>>, direction: number, maxItems: number) => {
     let newIdx = currentIdx + (direction * 4);
@@ -195,8 +304,8 @@ export default function Home() {
     <div className={`min-h-screen bg-[#070708] text-zinc-100 antialiased font-sans selection:bg-[#00ff66] selection:text-black ${isCartOpen ? 'overflow-hidden' : 'overflow-x-hidden'}`}>
       
       <Header totalItems={totalItems} setIsCartOpen={setIsCartOpen} searchQuery={searchQuery} setSearchQuery={setSearchQuery} onAuthClick={() => setIsAuthOpen(true)} loggedUserName={loggedUser?.name} onLogout={handleLogout} />
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={setLoggedUser} />
-      <Cart isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} totalItems={totalItems} subtotal={subtotal} />
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLoginSuccess={async (user) => { setLoggedUser(user); setCart(await buscarCarrinho(user.id)); }} />
+      <Cart isCartOpen={isCartOpen} setIsCartOpen={setIsCartOpen} cart={cart} updateQuantity={updateQuantity} removeFromCart={removeFromCart} totalItems={totalItems} subtotal={subtotal} onCheckout={handleCheckout} />
 
       {/* HERO SECTION */}
       <main id="topo" className="max-w-7xl mx-auto px-6 pt-32 lg:pt-40 pb-12 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
@@ -226,21 +335,21 @@ export default function Home() {
 
           <div className="w-full flex items-center justify-center gap-4 relative h-[420px]">
             <div className="w-[20%] h-[320px] rounded-xl overflow-hidden border border-zinc-900 opacity-30 hidden md:block blur-[1px]">
-              <img src={HERO_PRODUCTS[getLeftIndex()].image} alt="Anterior" className="w-full h-full object-cover" />
+              <img src={heroProducts[getLeftIndex()].image} alt="Anterior" className="w-full h-full object-cover" />
             </div>
 
             <div className="w-[100%] md:w-[60%] h-[400px] bg-zinc-900/40 border border-[#00ff66]/30 shadow-[0_0_50px_rgba(0,255,102,0.06)] rounded-2xl relative flex flex-col justify-between overflow-hidden group">
-              <img src={HERO_PRODUCTS[currentIndex].image} alt={HERO_PRODUCTS[currentIndex].name} className="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-108" />
+              <img src={heroProducts[currentIndex].image} alt={heroProducts[currentIndex].name} className="w-full h-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-108" />
               <div className="absolute inset-0 bg-gradient-to-t from-[#070708] via-transparent to-transparent"></div>
               
               <div className="absolute bottom-4 left-4 right-4 bg-black/80 border border-zinc-800/80 backdrop-blur-md p-4 rounded-xl z-10">
-                <span className="text-[9px] font-mono text-[#00ff66] block tracking-widest uppercase">{HERO_PRODUCTS[currentIndex].category} // {HERO_PRODUCTS[currentIndex].target}</span>
-                <span className="text-sm font-black text-white tracking-wider block uppercase mt-0.5">{HERO_PRODUCTS[currentIndex].name}</span>
+                <span className="text-[9px] font-mono text-[#00ff66] block tracking-widest uppercase">{heroProducts[currentIndex].category} // {heroProducts[currentIndex].target}</span>
+                <span className="text-sm font-black text-white tracking-wider block uppercase mt-0.5">{heroProducts[currentIndex].name}</span>
               </div>
             </div>
 
             <div className="w-[20%] h-[320px] rounded-xl overflow-hidden border border-zinc-900 opacity-30 hidden md:block blur-[1px]">
-              <img src={HERO_PRODUCTS[getRightIndex()].image} alt="Próximo" className="w-full h-full object-cover" />
+              <img src={heroProducts[getRightIndex()].image} alt="Próximo" className="w-full h-full object-cover" />
             </div>
           </div>
 
