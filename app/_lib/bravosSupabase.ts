@@ -24,7 +24,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 // Proteção para evitar erro silencioso caso falte configurar o .env.local
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(
-    "Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no arquivo .env.local"
+    "Configure NEXT_PUBLIC_SUPABASE_URL e NEXT_PUBLIC_SUPABASE_ANON_KEY no arquivo .env.local",
   );
 }
 
@@ -40,6 +40,7 @@ export type BravosUser = {
   id: string;
   name: string;
   email: string;
+  cpf?: string;
   tipo: "admin" | "cliente";
 };
 
@@ -70,28 +71,58 @@ export type CartItem = {
 
 // Cadastra um cliente usando Supabase Auth.
 // A senha NÃO fica na tabela usuarios; ela fica segura no auth.users.
-export async function cadastrarCliente(nome: string, email: string, senha: string) {
+// O CPF e o nome são enviados também em options.data para o trigger do banco.
+export async function cadastrarCliente(
+  nome: string,
+  email: string,
+  senha: string,
+  cpf?: string,
+): Promise<BravosUser> {
   const cleanEmail = email.trim().toLowerCase();
 
   const { data, error } = await supabase.auth.signUp({
     email: cleanEmail,
     password: senha,
+    options: {
+      data: {
+        nome,
+        cpf: cpf ?? null,
+        tipo: "cliente",
+      },
+    },
   });
 
   if (error) throw new Error(error.message);
 
-  const userId = data.user?.id;
+  // Em alguns cenários, como confirmação de e-mail ou conta já existente,
+  // o Supabase pode não devolver o usuário completo no retorno imediato.
+  // Por isso tentamos pegar o usuário da sessão atual como segunda opção.
+  let userId = data.user?.id;
 
   if (!userId) {
-    throw new Error("Usuário criado, mas o Supabase não retornou o ID.");
+    const { data: loginData } = await supabase.auth.signInWithPassword({
+      email: cleanEmail,
+      password: senha,
+    });
+    userId = loginData.user?.id;
   }
 
-  // Salva dados extras do usuário na tabela public.usuarios
-  const { error: perfilError } = await supabase.from("usuarios").insert({
-    id: userId,
-    nome,
-    tipo: "cliente",
-  });
+  if (!userId) {
+    throw new Error(
+      "Conta criada no Supabase Auth, mas não foi possível obter o UUID. Desative a confirmação de e-mail durante os testes ou faça login com esse e-mail.",
+    );
+  }
+
+  // Usa upsert para evitar erro caso o trigger do banco já tenha criado o perfil.
+  const { error: perfilError } = await supabase.from("usuarios").upsert(
+    {
+      id: userId,
+      nome,
+      cpf: cpf ?? null,
+      tipo: "cliente",
+    },
+    { onConflict: "id" },
+  );
 
   if (perfilError) throw new Error(perfilError.message);
 
@@ -99,12 +130,16 @@ export async function cadastrarCliente(nome: string, email: string, senha: strin
     id: userId,
     name: nome,
     email: cleanEmail,
-    tipo: "cliente" as const,
+    cpf,
+    tipo: "cliente",
   };
 }
 
 // Faz login pelo Supabase Auth e busca o nome/tipo na tabela usuarios.
-export async function fazerLogin(email: string, senha: string): Promise<BravosUser> {
+export async function fazerLogin(
+  email: string,
+  senha: string,
+): Promise<BravosUser> {
   const cleanEmail = email.trim().toLowerCase();
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -118,7 +153,7 @@ export async function fazerLogin(email: string, senha: string): Promise<BravosUs
 
   const { data: perfil, error: perfilError } = await supabase
     .from("usuarios")
-    .select("id, nome, tipo")
+    .select("id, nome, cpf, tipo")
     .eq("id", userId)
     .single();
 
@@ -128,6 +163,7 @@ export async function fazerLogin(email: string, senha: string): Promise<BravosUs
     id: perfil.id,
     name: perfil.nome,
     email: data.user.email ?? cleanEmail,
+    cpf: perfil.cpf ?? undefined,
     tipo: perfil.tipo,
   };
 }
@@ -141,7 +177,7 @@ export async function buscarUsuarioLogado(): Promise<BravosUser | null> {
 
   const { data: perfil, error } = await supabase
     .from("usuarios")
-    .select("id, nome, tipo")
+    .select("id, nome, cpf, tipo")
     .eq("id", data.user.id)
     .single();
 
@@ -151,6 +187,7 @@ export async function buscarUsuarioLogado(): Promise<BravosUser | null> {
     id: perfil.id,
     name: perfil.nome,
     email: data.user.email ?? "",
+    cpf: perfil.cpf ?? undefined,
     tipo: perfil.tipo,
   };
 }
@@ -168,7 +205,8 @@ export async function recuperarSenha(email: string) {
   const cleanEmail = email.trim().toLowerCase();
 
   const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-    redirectTo: typeof window !== "undefined" ? `${window.location.origin}` : undefined,
+    redirectTo:
+      typeof window !== "undefined" ? `${window.location.origin}` : undefined,
   });
 
   if (error) throw new Error(error.message);
@@ -192,7 +230,8 @@ function mapProduto(produto: any): Product {
     image: produto.imagem,
     desc: produto.descricao,
     details: produto.detalhes,
-    highlights: produto.produto_highlights?.map((item: any) => item.destaque) ?? [],
+    highlights:
+      produto.produto_highlights?.map((item: any) => item.destaque) ?? [],
   };
 }
 
@@ -201,7 +240,8 @@ function mapProduto(produto: any): Product {
 export async function buscarProdutos(): Promise<Product[]> {
   const { data, error } = await supabase
     .from("produtos")
-    .select(`
+    .select(
+      `
       id,
       nome,
       categoria,
@@ -215,7 +255,8 @@ export async function buscarProdutos(): Promise<Product[]> {
       produto_highlights (
         destaque
       )
-    `)
+    `,
+    )
     .order("id", { ascending: true });
 
   if (error) throw new Error(error.message);
@@ -228,7 +269,8 @@ export async function buscarProdutos(): Promise<Product[]> {
 export async function buscarProdutoPorId(id: number): Promise<Product | null> {
   const { data, error } = await supabase
     .from("produtos")
-    .select(`
+    .select(
+      `
       id,
       nome,
       categoria,
@@ -242,7 +284,8 @@ export async function buscarProdutoPorId(id: number): Promise<Product | null> {
       produto_highlights (
         destaque
       )
-    `)
+    `,
+    )
     .eq("id", id)
     .single();
 
@@ -260,7 +303,8 @@ export async function buscarProdutoPorId(id: number): Promise<Product | null> {
 export async function buscarCarrinho(usuarioId: string): Promise<CartItem[]> {
   const { data, error } = await supabase
     .from("carrinho")
-    .select(`
+    .select(
+      `
       quantidade,
       produtos (
         id,
@@ -268,7 +312,8 @@ export async function buscarCarrinho(usuarioId: string): Promise<CartItem[]> {
         preco,
         imagem
       )
-    `)
+    `,
+    )
     .eq("usuario_id", usuarioId)
     .order("criado_em", { ascending: true });
 
@@ -285,7 +330,11 @@ export async function buscarCarrinho(usuarioId: string): Promise<CartItem[]> {
 
 // Adiciona produto ao carrinho.
 // Se o produto já existir no carrinho, aumenta a quantidade.
-export async function adicionarAoCarrinho(usuarioId: string, produtoId: number, quantidade = 1) {
+export async function adicionarAoCarrinho(
+  usuarioId: string,
+  produtoId: number,
+  quantidade = 1,
+) {
   const { data: itemExistente, error: buscaError } = await supabase
     .from("carrinho")
     .select("id, quantidade")
@@ -319,7 +368,7 @@ export async function adicionarAoCarrinho(usuarioId: string, produtoId: number, 
 export async function atualizarQuantidadeCarrinho(
   usuarioId: string,
   produtoId: number,
-  novaQuantidade: number
+  novaQuantidade: number,
 ) {
   if (novaQuantidade <= 0) {
     await removerDoCarrinho(usuarioId, produtoId);
@@ -405,7 +454,8 @@ export async function finalizarPedido(usuarioId: string, cart: CartItem[]) {
 export async function buscarPedidos(usuarioId: string) {
   const { data, error } = await supabase
     .from("pedidos")
-    .select(`
+    .select(
+      `
       id,
       total,
       status,
@@ -419,7 +469,8 @@ export async function buscarPedidos(usuarioId: string) {
           imagem
         )
       )
-    `)
+    `,
+    )
     .eq("usuario_id", usuarioId)
     .order("criado_em", { ascending: false });
 
