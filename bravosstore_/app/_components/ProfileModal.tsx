@@ -1,157 +1,233 @@
 "use client";
 
-import React, { useState } from "react";
-import { BravosUser, supabase } from "../_lib/bravosSupabase";
+/*
+  ARQUIVO: app/_components/ProfileModal.tsx
+  FUNÇÃO: Modal de visualização e edição de dados do perfil do usuário.
+*/
+
+import React, { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { BravosUser, buscarUsuarioLogado, supabase } from "../_lib/bravosSupabase";
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  user: BravosUser | null;
-  onUpdateUser: (updatedUser: BravosUser) => void;
+  loggedUser: BravosUser | null;
+  onProfileUpdated: (user: BravosUser) => void;
 }
 
 export default function ProfileModal({
   isOpen,
   onClose,
-  user,
-  onUpdateUser,
+  loggedUser,
+  onProfileUpdated,
 }: ProfileModalProps) {
-  const [name, setName] = useState(user?.name || "");
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!isOpen || !user) return null;
+  useEffect(() => {
+    if (loggedUser) {
+      setEditName(loggedUser.name || "");
+      setEditEmail(loggedUser.email || "");
+    }
+  }, [loggedUser]);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  if (!isOpen) return null;
+
+  const handleClose = () => {
+    setIsEditingName(false);
+    setIsEditingEmail(false);
+    onClose();
+  };
+
+  const handleSaveProfile = async () => {
+    if (!loggedUser) {
+      handleClose();
+      return;
+    }
+
+    const hasNameChanged = isEditingName && editName !== loggedUser.name;
+    const hasEmailChanged = isEditingEmail && editEmail !== loggedUser.email;
+
+    if (!hasNameChanged && !hasEmailChanged) {
+      handleClose();
+      return;
+    }
+
     try {
       setIsSaving(true);
-      const { error } = await supabase
-        .from("users")
-        .update({ name })
-        .eq("id", user.id);
 
-      if (error) throw error;
+      if (hasEmailChanged) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: editEmail,
+        });
+        if (emailError) throw emailError;
+        toast.info("Verifique o novo e-mail para confirmar a alteração.");
+      }
 
-      onUpdateUser({ ...user, name });
-      toast.success("Nome atualizado com sucesso!");
-      onClose();
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao atualizar o nome.");
+      if (hasNameChanged) {
+        const { error: metaError } = await supabase.auth.updateUser({
+          data: { name: editName },
+        });
+        if (metaError) throw metaError;
+
+        await supabase
+          .from("profiles")
+          .update({ name: editName })
+          .eq("id", loggedUser.id);
+      }
+
+      const usuarioAtualizado = await buscarUsuarioLogado();
+      if (usuarioAtualizado) {
+        onProfileUpdated(usuarioAtualizado);
+      }
+
+      toast.success("Perfil atualizado com sucesso!");
+      handleClose();
+    } catch (error: any) {
+      console.error("Erro ao atualizar perfil:", error);
+      toast.error(error?.message || "Não foi possível atualizar o perfil.");
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-[#09090b] p-6 shadow-2xl space-y-6">
-        <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
-          <div>
-            <span className="text-[10px] font-mono text-[#00ff66] tracking-widest uppercase">
-              // PAINEL DE CREDENCIAIS
-            </span>
-            <h2 className="text-xl font-bold text-white uppercase italic">
-              Perfil do Utilizador
-            </h2>
-          </div>
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      <div className="bg-[#09090b] border border-zinc-800/80 p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-6 relative">
+        <div className="flex justify-between items-center pb-4 border-b border-zinc-800/80">
+          <h2 className="text-white font-black text-lg uppercase tracking-wider italic">
+            Configurações do Perfil
+          </h2>
           <button
-            onClick={onClose}
-            className="text-zinc-500 hover:text-white text-lg"
+            onClick={handleClose}
+            className="text-zinc-400 hover:text-white transition cursor-pointer"
           >
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          {/* Nome de Utilizador (Editável) */}
+        <div className="space-y-4">
+          {/* NOME DO UTILIZADOR */}
           <div>
-            <label className="block text-xs font-mono uppercase text-zinc-400 mb-1 flex items-center gap-2">
-              <span aria-hidden="true" className="text-[#00ff66]">●</span> Nome Completo
+            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+              Nome do Utilizador
+            </label>
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                disabled={!isEditingName}
+                className={`w-full bg-zinc-900 border rounded-xl pr-10 pl-4 py-2.5 text-zinc-300 text-sm focus:outline-none transition ${
+                  isEditingName
+                    ? "border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] text-white opacity-100"
+                    : "border-zinc-800 cursor-not-allowed opacity-80"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setIsEditingName(!isEditingName)}
+                className="absolute right-3 text-zinc-400 hover:text-[#00ff66] transition cursor-pointer"
+                title="Editar nome"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* E-MAIL */}
+          <div>
+            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+              E-mail
+            </label>
+            <div className="relative flex items-center">
+              <input
+                type="email"
+                value={editEmail}
+                onChange={(e) => setEditEmail(e.target.value)}
+                disabled={!isEditingEmail}
+                className={`w-full bg-zinc-900 border rounded-xl pr-10 pl-4 py-2.5 text-zinc-300 text-sm focus:outline-none transition ${
+                  isEditingEmail
+                    ? "border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] text-white opacity-100"
+                    : "border-zinc-800 cursor-not-allowed opacity-80"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => setIsEditingEmail(!isEditingEmail)}
+                className="absolute right-3 text-zinc-400 hover:text-[#00ff66] transition cursor-pointer"
+                title="Editar e-mail"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.5}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          {/* CPF */}
+          <div>
+            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+              CPF
             </label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-2.5 text-sm text-white focus:border-[#00ff66] focus:outline-none focus:ring-1 focus:ring-[#00ff66] transition"
-              required
+              value={(loggedUser as any)?.cpf || "Não informado"}
+              disabled
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-300 text-sm focus:outline-none cursor-not-allowed opacity-80"
             />
           </div>
 
-          {/* E-mail (Apenas Leitura) */}
+          {/* SENHA */}
           <div>
-            <label className="block text-xs font-mono uppercase text-zinc-500 mb-1 flex items-center gap-2">
-              <span aria-hidden="true">✉</span> E-mail
+            <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+              Senha
             </label>
             <input
-              type="email"
+              type="password"
+              value="••••••••"
               disabled
-              value={user.email || "usuario@bravos.com"}
-              className="w-full rounded-lg border border-zinc-800/50 bg-zinc-950/80 px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-300 text-sm focus:outline-none cursor-not-allowed opacity-80"
             />
           </div>
+        </div>
 
-          {/* Grid com CPF e Data de Nascimento */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-mono uppercase text-zinc-500 mb-1 flex items-center gap-2">
-                <span aria-hidden="true">▤</span> CPF
-              </label>
-              <input
-                type="text"
-                disabled
-                value={"***.***.***-**"}
-                className="w-full rounded-lg border border-zinc-800/50 bg-zinc-950/80 px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-mono uppercase text-zinc-500 mb-1 flex items-center gap-2">
-                <span aria-hidden="true">▦</span> Nascimento
-              </label>
-              <input
-                type="text"
-                disabled
-                value={"**/**/****"}
-                className="w-full rounded-lg border border-zinc-800/50 bg-zinc-950/80 px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed"
-              />
-            </div>
-          </div>
-
-          {/* Senha Criptografada */}
-          <div>
-            <label className="block text-xs font-mono uppercase text-zinc-500 mb-1 flex items-center gap-2">
-              <span aria-hidden="true">▣</span> Password Criptografada
-            </label>
-            <div className="relative">
-              <input
-                type="password"
-                disabled
-                value="********************"
-                className="w-full rounded-lg border border-zinc-800/50 bg-zinc-950/80 px-4 py-2.5 text-sm text-zinc-500 cursor-not-allowed font-mono"
-              />
-              <span className="absolute right-3 top-2.5 text-[10px] font-mono text-[#00ff66] flex items-center gap-1">
-                <span aria-hidden="true">✓</span> E2E Encrypted
-              </span>
-            </div>
-          </div>
-
-          <div className="pt-4 flex justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-zinc-800 text-xs font-mono uppercase text-zinc-400 hover:bg-zinc-900"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="px-6 py-2 rounded-lg bg-[#00ff66] text-black text-xs font-bold font-mono uppercase hover:bg-emerald-400 transition disabled:opacity-50"
-            >
-              {isSaving ? "A Guardar..." : "Salvar Alterações"}
-            </button>
-          </div>
-        </form>
+        <button
+          type="button"
+          onClick={handleSaveProfile}
+          disabled={isSaving}
+          className="w-full bg-[#00ff66] text-black font-black uppercase tracking-widest py-3 rounded-xl hover:bg-emerald-400 transition cursor-pointer disabled:opacity-50"
+        >
+          {isSaving ? "Guardando..." : "Concluir"}
+        </button>
       </div>
     </div>
   );

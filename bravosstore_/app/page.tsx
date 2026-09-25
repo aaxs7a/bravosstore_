@@ -18,6 +18,7 @@ import Cart from "./_components/cart";
 import ProductCard from "./_components/cardproduct";
 import ProductSkeleton from "./_components/ProductSkeleton";
 import { toast } from "sonner";
+import ProfileModal from "./_components/ProfileModal";
 import {
   Product,
   CartItem,
@@ -50,13 +51,6 @@ export default function Home() {
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadError, setLoadError] = useState("");
 
-  // Estados para Edição do Perfil
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [isEditingName, setIsEditingName] = useState(false);
-  const [isEditingEmail, setIsEditingEmail] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
   // Estados para o Modal de Redefinição de Senha
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
@@ -80,15 +74,13 @@ export default function Home() {
         setLoggedUser(usuarioAtual);
 
         if (usuarioAtual) {
-          setEditName(usuarioAtual.name || "");
-          setEditEmail(usuarioAtual.email || "");
           const carrinhoDoBanco = await buscarCarrinho(usuarioAtual.id);
           setCart(carrinhoDoBanco);
         }
       } catch (error: any) {
         console.error("Erro ao carregar dados da Bravos Store:", error);
         setLoadError(
-          error?.message || "Erro ao carregar produtos do Supabase.",
+          error?.message || "Erro ao carregar produtos do Supabase."
         );
       } finally {
         setLoadingProducts(false);
@@ -107,8 +99,6 @@ export default function Home() {
           const usuarioAtual = await buscarUsuarioLogado();
           setLoggedUser(usuarioAtual);
           if (usuarioAtual) {
-            setEditName(usuarioAtual.name || "");
-            setEditEmail(usuarioAtual.email || "");
             const carrinhoDoBanco = await buscarCarrinho(usuarioAtual.id);
             setCart(carrinhoDoBanco);
           }
@@ -125,15 +115,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (loggedUser) {
-      setEditName(loggedUser.name || "");
-      setEditEmail(loggedUser.email || "");
-    }
-  }, [loggedUser]);
-
-  useEffect(() => {
     const queryFromUrl = new URLSearchParams(window.location.search).get(
-      "busca",
+      "busca"
     );
     if (queryFromUrl) setSearchQuery(queryFromUrl);
   }, []);
@@ -159,61 +142,6 @@ export default function Home() {
     window.addEventListener("hashchange", scrollFromHash);
     return () => window.removeEventListener("hashchange", scrollFromHash);
   }, []);
-
-  // Função para salvar atualizações de perfil
-  const handleSaveProfile = async () => {
-    if (!loggedUser) {
-      setIsProfileModalOpen(false);
-      return;
-    }
-
-    const hasNameChanged = isEditingName && editName !== loggedUser.name;
-    const hasEmailChanged = isEditingEmail && editEmail !== loggedUser.email;
-
-    if (!hasNameChanged && !hasEmailChanged) {
-      setIsProfileModalOpen(false);
-      setIsEditingName(false);
-      setIsEditingEmail(false);
-      return;
-    }
-
-    try {
-      setIsSavingProfile(true);
-
-      if (hasEmailChanged) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: editEmail,
-        });
-        if (emailError) throw emailError;
-        toast.info("Verifique o novo e-mail para confirmar a alteração.");
-      }
-
-      if (hasNameChanged) {
-        const { error: metaError } = await supabase.auth.updateUser({
-          data: { name: editName },
-        });
-        if (metaError) throw metaError;
-
-        await supabase
-          .from("profiles")
-          .update({ name: editName })
-          .eq("id", loggedUser.id);
-      }
-
-      const usuarioAtualizado = await buscarUsuarioLogado();
-      setLoggedUser(usuarioAtualizado);
-
-      toast.success("Perfil atualizado com sucesso!");
-      setIsProfileModalOpen(false);
-      setIsEditingName(false);
-      setIsEditingEmail(false);
-    } catch (error: any) {
-      console.error("Erro ao atualizar perfil:", error);
-      toast.error(error?.message || "Não foi possível atualizar o perfil.");
-    } finally {
-      setIsSavingProfile(false);
-    }
-  };
 
   // Função para processar a redefinição da senha
   const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -270,7 +198,7 @@ export default function Home() {
 
   const listColecoes = filteredProducts.filter((p) => p.target === "COLEÇÕES");
   const listMasculino = filteredProducts.filter(
-    (p) => p.target === "MASCULINO",
+    (p) => p.target === "MASCULINO"
   );
   const listFeminino = filteredProducts.filter((p) => p.target === "FEMININO");
 
@@ -327,8 +255,6 @@ export default function Home() {
 
   const handleLoginSuccess = async (user: BravosUser) => {
     setLoggedUser(user);
-    setEditName(user.name || "");
-    setEditEmail(user.email || "");
     const carrinhoDoBanco = await buscarCarrinho(user.id);
     setCart(carrinhoDoBanco);
   };
@@ -345,7 +271,7 @@ export default function Home() {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
-    0,
+    0
   );
 
   return (
@@ -581,7 +507,7 @@ export default function Home() {
                       onClick={() => {
                         const swiperEl = (
                           document.querySelector(
-                            ".swiper-colecoes",
+                            ".swiper-colecoes"
                           ) as HTMLElement & { swiper?: any }
                         )?.swiper;
                         swiperEl?.slidePrev();
@@ -594,7 +520,7 @@ export default function Home() {
                       onClick={() => {
                         const swiperEl = (
                           document.querySelector(
-                            ".swiper-colecoes",
+                            ".swiper-colecoes"
                           ) as HTMLElement & { swiper?: any }
                         )?.swiper;
                         swiperEl?.slideNext();
@@ -657,7 +583,7 @@ export default function Home() {
                       onClick={() => {
                         const swiperEl = (
                           document.querySelector(
-                            ".swiper-masculino",
+                            ".swiper-masculino"
                           ) as HTMLElement & { swiper?: any }
                         )?.swiper;
                         swiperEl?.slidePrev();
@@ -670,7 +596,7 @@ export default function Home() {
                       onClick={() => {
                         const swiperEl = (
                           document.querySelector(
-                            ".swiper-masculino",
+                            ".swiper-masculino"
                           ) as HTMLElement & { swiper?: any }
                         )?.swiper;
                         swiperEl?.slideNext();
@@ -733,7 +659,7 @@ export default function Home() {
                       onClick={() => {
                         const swiperEl = (
                           document.querySelector(
-                            ".swiper-feminino",
+                            ".swiper-feminino"
                           ) as HTMLElement & { swiper?: any }
                         )?.swiper;
                         swiperEl?.slidePrev();
@@ -746,7 +672,7 @@ export default function Home() {
                       onClick={() => {
                         const swiperEl = (
                           document.querySelector(
-                            ".swiper-feminino",
+                            ".swiper-feminino"
                           ) as HTMLElement & { swiper?: any }
                         )?.swiper;
                         swiperEl?.slideNext();
@@ -851,146 +777,14 @@ export default function Home() {
       )}
 
       {/* MODAL DE CONFIGURAÇÕES DO PERFIL */}
-      {isProfileModalOpen && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-[#09090b] border border-zinc-800/80 p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-6 relative">
-            <div className="flex justify-between items-center pb-4 border-b border-zinc-800/80">
-              <h2 className="text-white font-black text-lg uppercase tracking-wider italic">
-                Configurações do Perfil
-              </h2>
-              <button
-                onClick={() => {
-                  setIsProfileModalOpen(false);
-                  setIsEditingName(false);
-                  setIsEditingEmail(false);
-                }}
-                className="text-zinc-400 hover:text-white transition cursor-pointer"
-              >
-                ✕
-              </button>
-            </div>
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        loggedUser={loggedUser}
+        onProfileUpdated={(updatedUser) => setLoggedUser(updatedUser)}
+      />
 
-            <div className="space-y-4">
-              {/* NOME DO UTILIZADOR */}
-              <div>
-                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
-                  Nome do Utilizador
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    disabled={!isEditingName}
-                    className={`w-full bg-zinc-900 border rounded-xl pr-10 pl-4 py-2.5 text-zinc-300 text-sm focus:outline-none transition ${
-                      isEditingName
-                        ? "border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] text-white opacity-100"
-                        : "border-zinc-800 cursor-not-allowed opacity-80"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingName(!isEditingName)}
-                    className="absolute right-3 text-zinc-400 hover:text-[#00ff66] transition cursor-pointer"
-                    title="Editar nome"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* E-MAIL */}
-              <div>
-                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
-                  E-mail
-                </label>
-                <div className="relative flex items-center">
-                  <input
-                    type="email"
-                    value={editEmail}
-                    onChange={(e) => setEditEmail(e.target.value)}
-                    disabled={!isEditingEmail}
-                    className={`w-full bg-zinc-900 border rounded-xl pr-10 pl-4 py-2.5 text-zinc-300 text-sm focus:outline-none transition ${
-                      isEditingEmail
-                        ? "border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] text-white opacity-100"
-                        : "border-zinc-800 cursor-not-allowed opacity-80"
-                    }`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setIsEditingEmail(!isEditingEmail)}
-                    className="absolute right-3 text-zinc-400 hover:text-[#00ff66] transition cursor-pointer"
-                    title="Editar e-mail"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={1.5}
-                      stroke="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
-                      />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* CPF */}
-              <div>
-                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
-                  CPF
-                </label>
-                <input
-                  type="text"
-                  value={(loggedUser as any)?.cpf || "Não informado"}
-                  disabled
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-300 text-sm focus:outline-none cursor-not-allowed opacity-80"
-                />
-              </div>
-
-              {/* SENHA */}
-              <div>
-                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
-                  Senha
-                </label>
-                <input
-                  type="password"
-                  value="••••••••"
-                  disabled
-                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-300 text-sm focus:outline-none cursor-not-allowed opacity-80"
-                />
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleSaveProfile}
-              disabled={isSavingProfile}
-              className="w-full bg-[#00ff66] text-black font-black uppercase tracking-widest py-3 rounded-xl hover:bg-emerald-400 transition cursor-pointer disabled:opacity-50"
-            >
-              {isSavingProfile ? "Guardando..." : "Concluir"}
-            </button>
-          </div>
-        </div>
-      )}
+      <Footer />
     </div>
   );
 }
