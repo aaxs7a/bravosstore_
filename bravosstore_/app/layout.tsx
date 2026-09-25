@@ -7,6 +7,7 @@
 
 // Layout raiz do Next.js. Define metadados do site e carrega estilos globais.
 import type { Metadata } from "next";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -24,6 +25,7 @@ export default function RootLayout({
       {/* Forçando a renderização com o fundo preto profissional do Tailwind */}
       <body className="bg-[#09090b] text-zinc-100 antialiased">
         {children}
+        <Toaster position="bottom-right" richColors theme="dark" />
       </body>
     </html>
   );

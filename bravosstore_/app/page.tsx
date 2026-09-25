@@ -21,6 +21,7 @@ import AuthModal from "./_components/AuthModal";
 import Cart from "./_components/cart";
 import ProductCard from "./_components/cardproduct";
 import ProductSkeleton from "./_components/ProductSkeleton";
+import { toast } from "sonner";
 import {
   Product,
   CartItem,
@@ -138,8 +139,9 @@ export default function Home() {
   );
   const listFeminino = filteredProducts.filter((p) => p.target === "FEMININO");
 
-  const addToCart = async (product: Product) => {
+const addToCart = async (product: Product) => {
     if (!loggedUser) {
+      toast.error("Faça login para adicionar produtos ao carrinho!");
       setIsAuthOpen(true);
       return;
     }
@@ -149,9 +151,11 @@ export default function Home() {
       const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
       setCart(carrinhoAtualizado);
       setIsCartOpen(true);
+      
+      toast.success(`${product.name} adicionado à sua sacola!`);
     } catch (error: any) {
       console.error("Erro ao adicionar ao carrinho:", error);
-      alert(error?.message || "Não foi possível adicionar ao carrinho.");
+      toast.error(error?.message || "Não foi possível adicionar ao carrinho.");
     }
   };
 
