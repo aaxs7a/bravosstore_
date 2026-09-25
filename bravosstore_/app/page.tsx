@@ -8,10 +8,6 @@
   Esta página é o centro do e-commerce. Ela busca os produtos no Supabase,
   mostra o carrossel, separa os produtos por seções, controla a busca,
   abre o modal de login/cadastro e mantém o carrinho sincronizado com o banco.
-
-  IMPORTANTE:
-  O carrinho e o usuário NÃO ficam mais em localStorage. O login vem do
-  Supabase Auth e o carrinho vem da tabela public.carrinho.
 */
 
 import React, { useState, useEffect, useRef } from "react";
@@ -33,6 +29,7 @@ import {
   atualizarQuantidadeCarrinho,
   removerDoCarrinho,
   sairDaConta,
+  supabase,
 } from "./_lib/bravosSupabase";
 
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -45,12 +42,26 @@ import "swiper/css/navigation";
 export default function Home() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [loggedUser, setLoggedUser] = useState<BravosUser | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  // Estados para Edição do Perfil
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingEmail, setIsEditingEmail] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  // Estados para o Modal de Redefinição de Senha
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const swiperRef = useRef<SwiperType | null>(null);
 
@@ -69,6 +80,8 @@ export default function Home() {
         setLoggedUser(usuarioAtual);
 
         if (usuarioAtual) {
+          setEditName(usuarioAtual.name || "");
+          setEditEmail(usuarioAtual.email || "");
           const carrinhoDoBanco = await buscarCarrinho(usuarioAtual.id);
           setCart(carrinhoDoBanco);
         }
@@ -83,7 +96,40 @@ export default function Home() {
     }
 
     carregarDadosIniciais();
+
+    // Escuta alterações na sessão (incluindo o evento de recuperação de senha)
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setIsResetModalOpen(true);
+          toast.info("Defina uma nova senha para a sua conta.");
+        } else if (event === "SIGNED_IN" && session?.user) {
+          const usuarioAtual = await buscarUsuarioLogado();
+          setLoggedUser(usuarioAtual);
+          if (usuarioAtual) {
+            setEditName(usuarioAtual.name || "");
+            setEditEmail(usuarioAtual.email || "");
+            const carrinhoDoBanco = await buscarCarrinho(usuarioAtual.id);
+            setCart(carrinhoDoBanco);
+          }
+        } else if (event === "SIGNED_OUT") {
+          setLoggedUser(null);
+          setCart([]);
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (loggedUser) {
+      setEditName(loggedUser.name || "");
+      setEditEmail(loggedUser.email || "");
+    }
+  }, [loggedUser]);
 
   useEffect(() => {
     const queryFromUrl = new URLSearchParams(window.location.search).get(
@@ -114,6 +160,95 @@ export default function Home() {
     return () => window.removeEventListener("hashchange", scrollFromHash);
   }, []);
 
+  // Função para salvar atualizações de perfil
+  const handleSaveProfile = async () => {
+    if (!loggedUser) {
+      setIsProfileModalOpen(false);
+      return;
+    }
+
+    const hasNameChanged = isEditingName && editName !== loggedUser.name;
+    const hasEmailChanged = isEditingEmail && editEmail !== loggedUser.email;
+
+    if (!hasNameChanged && !hasEmailChanged) {
+      setIsProfileModalOpen(false);
+      setIsEditingName(false);
+      setIsEditingEmail(false);
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+
+      if (hasEmailChanged) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: editEmail,
+        });
+        if (emailError) throw emailError;
+        toast.info("Verifique o novo e-mail para confirmar a alteração.");
+      }
+
+      if (hasNameChanged) {
+        const { error: metaError } = await supabase.auth.updateUser({
+          data: { name: editName },
+        });
+        if (metaError) throw metaError;
+
+        await supabase
+          .from("profiles")
+          .update({ name: editName })
+          .eq("id", loggedUser.id);
+      }
+
+      const usuarioAtualizado = await buscarUsuarioLogado();
+      setLoggedUser(usuarioAtualizado);
+
+      toast.success("Perfil atualizado com sucesso!");
+      setIsProfileModalOpen(false);
+      setIsEditingName(false);
+      setIsEditingEmail(false);
+    } catch (error: any) {
+      console.error("Erro ao atualizar perfil:", error);
+      toast.error(error?.message || "Não foi possível atualizar o perfil.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
+  // Função para processar a redefinição da senha
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (newPassword.length < 6) {
+      toast.error("A senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("As senhas não coincidem!");
+      return;
+    }
+
+    try {
+      setIsUpdatingPassword(true);
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) throw error;
+
+      toast.success("Senha redefinida com sucesso!");
+      setIsResetModalOpen(false);
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error: any) {
+      console.error("Erro ao redefinir senha:", error);
+      toast.error(error?.message || "Não foi possível redefinir a senha.");
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+  };
+
   const heroProducts = products.slice(0, 3);
   const finalHeroProducts =
     heroProducts.length < 5
@@ -139,7 +274,7 @@ export default function Home() {
   );
   const listFeminino = filteredProducts.filter((p) => p.target === "FEMININO");
 
-const addToCart = async (product: Product) => {
+  const addToCart = async (product: Product) => {
     if (!loggedUser) {
       toast.error("Faça login para adicionar produtos ao carrinho!");
       setIsAuthOpen(true);
@@ -151,7 +286,7 @@ const addToCart = async (product: Product) => {
       const carrinhoAtualizado = await buscarCarrinho(loggedUser.id);
       setCart(carrinhoAtualizado);
       setIsCartOpen(true);
-      
+
       toast.success(`${product.name} adicionado à sua sacola!`);
     } catch (error: any) {
       console.error("Erro ao adicionar ao carrinho:", error);
@@ -192,6 +327,8 @@ const addToCart = async (product: Product) => {
 
   const handleLoginSuccess = async (user: BravosUser) => {
     setLoggedUser(user);
+    setEditName(user.name || "");
+    setEditEmail(user.email || "");
     const carrinhoDoBanco = await buscarCarrinho(user.id);
     setCart(carrinhoDoBanco);
   };
@@ -213,7 +350,9 @@ const addToCart = async (product: Product) => {
 
   return (
     <div
-      className={`min-h-screen bg-[#070708] text-zinc-100 antialiased font-sans selection:bg-[#00ff66] selection:text-black ${isCartOpen ? "overflow-hidden" : "overflow-x-hidden"}`}
+      className={`min-h-screen bg-[#070708] text-zinc-100 antialiased font-sans selection:bg-[#00ff66] selection:text-black ${
+        isCartOpen ? "overflow-hidden" : "overflow-x-hidden"
+      }`}
     >
       <Header
         totalItems={totalItems}
@@ -223,6 +362,7 @@ const addToCart = async (product: Product) => {
         onAuthClick={() => setIsAuthOpen(true)}
         loggedUserName={loggedUser?.name}
         onLogout={handleLogout}
+        onOpenProfileSettings={() => setIsProfileModalOpen(true)}
       />
       <AuthModal
         isOpen={isAuthOpen}
@@ -240,17 +380,15 @@ const addToCart = async (product: Product) => {
         subtotal={subtotal}
       />
 
-      {/* TELA DE SKELETON LOADING PARA PRODUTOS */}
+      {/* SKELETON LOADING */}
       {loadingProducts && (
         <main className="max-w-7xl mx-auto px-6 pt-32 lg:pt-40 pb-16 space-y-12">
-          {/* Banner Hero Skeleton */}
           <div className="w-full h-80 bg-zinc-900/40 border border-zinc-800/60 rounded-2xl animate-pulse flex items-center justify-center">
             <span className="text-xs font-mono text-zinc-600 uppercase tracking-widest">
               Carregando Destaques...
             </span>
           </div>
 
-          {/* Grid Skeleton dos Cards */}
           <div className="space-y-6">
             <div className="h-6 w-48 bg-zinc-900 rounded animate-pulse" />
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -314,7 +452,7 @@ const addToCart = async (product: Product) => {
               </div>
             </div>
 
-            {/* CARROSSEL HERO EM LOOPING REAL INFINITO PARA OS DOIS LADOS */}
+            {/* CARROSSEL HERO */}
             <div className="lg:col-span-7 relative w-full select-none px-4">
               <button
                 onClick={() => swiperRef.current?.slidePrev()}
@@ -426,7 +564,7 @@ const addToCart = async (product: Product) => {
 
           {/* VITRINES PRODUTOS */}
           <section className="max-w-7xl mx-auto px-6 py-16 space-y-28 border-t border-zinc-900/60 overflow-hidden">
-            {/* SECTION 1: COLEÇÕES */}
+            {/* COLEÇÕES */}
             <div id="colecoes" className="space-y-6 scroll-mt-24">
               <div className="flex justify-between items-end border-b border-zinc-900 pb-4">
                 <div>
@@ -497,13 +635,12 @@ const addToCart = async (product: Product) => {
                 </div>
               ) : (
                 <p className="text-zinc-500 text-xs italic tracking-wider py-4">
-                  Nenhum produto encontrado nesta categoria para "{searchQuery}
-                  ".
+                  Nenhum produto encontrado nesta categoria para "{searchQuery}".
                 </p>
               )}
             </div>
 
-            {/* SECTION 2: MASCULINO */}
+            {/* MASCULINO */}
             <div id="masculino" className="space-y-6 scroll-mt-24">
               <div className="flex justify-between items-end border-b border-zinc-900 pb-4">
                 <div>
@@ -574,13 +711,12 @@ const addToCart = async (product: Product) => {
                 </div>
               ) : (
                 <p className="text-zinc-500 text-xs italic tracking-wider py-4">
-                  Nenhum produto encontrado nesta categoria para "{searchQuery}
-                  ".
+                  Nenhum produto encontrado nesta categoria para "{searchQuery}".
                 </p>
               )}
             </div>
 
-            {/* SECTION 3: FEMININO */}
+            {/* FEMININO */}
             <div id="feminino" className="space-y-6 scroll-mt-24">
               <div className="flex justify-between items-end border-b border-zinc-900 pb-4">
                 <div>
@@ -651,8 +787,7 @@ const addToCart = async (product: Product) => {
                 </div>
               ) : (
                 <p className="text-zinc-500 text-xs italic tracking-wider py-4">
-                  Nenhum produto encontrado nesta categoria para "{searchQuery}
-                  ".
+                  Nenhum produto encontrado nesta categoria para "{searchQuery}".
                 </p>
               )}
             </div>
@@ -660,7 +795,202 @@ const addToCart = async (product: Product) => {
         </>
       )}
 
-      <Footer />
+      {/* MODAL DE REDEFINIÇÃO DE SENHA */}
+      {isResetModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-xl border border-zinc-800 bg-[#09090b] p-6 shadow-2xl space-y-6">
+            <div className="space-y-1 text-center">
+              <h2 className="text-xl font-bold tracking-tight text-white uppercase">
+                Redefinir Senha
+              </h2>
+              <p className="text-sm text-zinc-400">
+                Crie uma nova senha para sua conta na{" "}
+                <span className="text-white font-semibold">BRAVO'S STORE</span>.
+              </p>
+            </div>
+
+            <form onSubmit={handleUpdatePassword} className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium uppercase text-zinc-400 mb-1">
+                  Nova Senha
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#00ff66] focus:outline-none focus:ring-1 focus:ring-[#00ff66] transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium uppercase text-zinc-400 mb-1">
+                  Confirmar Nova Senha
+                </label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full rounded-lg border border-zinc-800 bg-zinc-900/50 px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:border-[#00ff66] focus:outline-none focus:ring-1 focus:ring-[#00ff66] transition"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isUpdatingPassword}
+                className="w-full rounded-lg bg-[#00ff66] py-3 text-sm font-semibold text-black hover:bg-emerald-400 transition disabled:opacity-50 cursor-pointer"
+              >
+                {isUpdatingPassword ? "Atualizando..." : "Salvar Nova Senha"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE CONFIGURAÇÕES DO PERFIL */}
+      {isProfileModalOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-[#09090b] border border-zinc-800/80 p-6 rounded-2xl max-w-md w-full shadow-2xl space-y-6 relative">
+            <div className="flex justify-between items-center pb-4 border-b border-zinc-800/80">
+              <h2 className="text-white font-black text-lg uppercase tracking-wider italic">
+                Configurações do Perfil
+              </h2>
+              <button
+                onClick={() => {
+                  setIsProfileModalOpen(false);
+                  setIsEditingName(false);
+                  setIsEditingEmail(false);
+                }}
+                className="text-zinc-400 hover:text-white transition cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* NOME DO UTILIZADOR */}
+              <div>
+                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+                  Nome do Utilizador
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    disabled={!isEditingName}
+                    className={`w-full bg-zinc-900 border rounded-xl pr-10 pl-4 py-2.5 text-zinc-300 text-sm focus:outline-none transition ${
+                      isEditingName
+                        ? "border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] text-white opacity-100"
+                        : "border-zinc-800 cursor-not-allowed opacity-80"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingName(!isEditingName)}
+                    className="absolute right-3 text-zinc-400 hover:text-[#00ff66] transition cursor-pointer"
+                    title="Editar nome"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* E-MAIL */}
+              <div>
+                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+                  E-mail
+                </label>
+                <div className="relative flex items-center">
+                  <input
+                    type="email"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                    disabled={!isEditingEmail}
+                    className={`w-full bg-zinc-900 border rounded-xl pr-10 pl-4 py-2.5 text-zinc-300 text-sm focus:outline-none transition ${
+                      isEditingEmail
+                        ? "border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] text-white opacity-100"
+                        : "border-zinc-800 cursor-not-allowed opacity-80"
+                    }`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingEmail(!isEditingEmail)}
+                    className="absolute right-3 text-zinc-400 hover:text-[#00ff66] transition cursor-pointer"
+                    title="Editar e-mail"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={1.5}
+                      stroke="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              {/* CPF */}
+              <div>
+                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+                  CPF
+                </label>
+                <input
+                  type="text"
+                  value={(loggedUser as any)?.cpf || "Não informado"}
+                  disabled
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-300 text-sm focus:outline-none cursor-not-allowed opacity-80"
+                />
+              </div>
+
+              {/* SENHA */}
+              <div>
+                <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block mb-1">
+                  Senha
+                </label>
+                <input
+                  type="password"
+                  value="••••••••"
+                  disabled
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-zinc-300 text-sm focus:outline-none cursor-not-allowed opacity-80"
+                />
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleSaveProfile}
+              disabled={isSavingProfile}
+              className="w-full bg-[#00ff66] text-black font-black uppercase tracking-widest py-3 rounded-xl hover:bg-emerald-400 transition cursor-pointer disabled:opacity-50"
+            >
+              {isSavingProfile ? "Guardando..." : "Concluir"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
